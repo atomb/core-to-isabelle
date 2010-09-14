@@ -1,0 +1,21 @@
+cabal-version:       >= 1.2
+build-type:          Simple
+name:                core-to-isabelle
+version:             0.0
+synopsis:            Translator from GHC Core to Isabelle/HOLCF
+category:            Math
+license:             BSD3
+--author:
+--maintainer:
+
+executable core-to-isabelle
+    hs-source-dirs:      src
+    main-is:             Main.hs
+    ghc-options:         -Wall -fno-warn-orphans -fwarn-tabs
+    if os(darwin)
+       ghc-options:      -optl-Wl,-dead_strip
+    ghc-prof-options:    -auto-all
+    build-depends:       base > 4,
+                         ghc == 6.12.*,
+                         ghc-paths,
+                         process == 1.0.*
