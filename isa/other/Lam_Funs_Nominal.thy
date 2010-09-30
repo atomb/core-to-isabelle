@@ -1,4 +1,4 @@
-theory Lam_Funs_HOLCF
+theory Lam_Funs_Nominal
 imports HOLCF "~~/src/HOL/Nominal/Nominal" "~~/src/HOL/Nominal/Examples/Lam_Funs"
 begin
 
@@ -6,6 +6,7 @@ default_sort type
 
 text {* 
   Provides a denotational semantics for the "lam" syntax defined in theory Lam_Funs
+  (Lam_Funs is a Nominal-HOL theory, thus the suffix on this theory name).
 *}
 
 text {* A universal domain of lambda-calculus values *}
@@ -128,15 +129,6 @@ apply fresh_guess
 apply fresh_guess
 apply fresh_guess
 
-
-apply(simp add: fresh_nat)
-apply(fresh_guess)+
-done
-
-; REVISIT: Check-in to github (even if it doesn't compile), so others on the team can contribute.
-
-
-apply auto
 
 lemma [simp]: "cont (\<lambda>f. f x)"
 by (rule cont2cont_fun [OF cont_id])
