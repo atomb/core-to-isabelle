@@ -23,9 +23,9 @@ types Tcon = Id
       Dcon = Id
 
 datatype Kind =
-    Klifted
-  | Kunlifted
-  | Kopen
+    Klifted   -- "*"
+  | Kunlifted -- "#"
+  | Kopen     -- "Either * or #"
   | Karrow Kind Kind
   | Keq Ty Ty
 
