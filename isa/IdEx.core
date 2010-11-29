@@ -1,0 +1,3 @@
+%module blah:Blah
+myId :: %forall a . a -> a =
+ \ @a (x :: a) -> x;
