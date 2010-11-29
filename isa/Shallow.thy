@@ -18,7 +18,7 @@ new_domain V =
     VInt "(int lift)"
   | Vcon ID "(V finlist)"
   | Vfun (lazy "(V \<rightarrow> V)")
-  | Wrong                  -- "Don't go here"
+  | Wrong                  -- "Don't go here" (* Oops, sorry *)
 
 (*******
     typedef T = "{f :: V \<rightarrow> V. deflation f}"
