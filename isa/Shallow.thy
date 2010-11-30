@@ -1,5 +1,6 @@
 theory Shallow
-imports HOLCF begin
+imports HOLCF List_Cpo
+begin
 
 types Id = "char list"
 types ID = "Id lift"
@@ -94,5 +95,110 @@ definition match :: "Id \<Rightarrow> (V finlist \<Rightarrow> V)
                         \<Rightarrow> (V \<Rightarrow> V)
                         \<Rightarrow> V \<Rightarrow> V" where
 "match = undefined"
+
+
+section "Datatypes"
+
+instantiation bool :: discrete_cpo
+begin
+
+definition
+  "(x::bool) \<sqsubseteq> y \<equiv> x = y"
+
+instance
+apply (intro_classes)
+by (simp add: below_bool_def)
+
+end
+
+lemma cont_if'[simp, cont2cont]:
+  assumes b: "cont b"
+      and f: "cont f"
+      and g: "cont g"
+  shows "cont (\<lambda>x. if b x then f x else g x)"
+apply (rule cont_apply [OF b])
+apply (rule cont_discrete_cpo)
+by (case_tac y, auto simp add: f g)
+
+lemma cont_equal[simp,cont2cont]:
+  fixes f g :: "'a::cpo \<Rightarrow> 'b::discrete_cpo"
+  assumes f: "cont f"
+      and g: "cont g"
+  shows "cont (\<lambda>x. f x = g x)"
+apply (rule cont_apply [OF f])
+apply (rule cont_discrete_cpo)
+apply (rule cont_apply [OF g])
+apply (rule cont_discrete_cpo)
+apply (rule cont_const)
+done
+
+ 
+instantiation char :: discrete_cpo
+begin
+
+definition
+  "(x::char) \<sqsubseteq> y \<equiv> x = y"
+
+instance
+apply (intro_classes)
+by (simp add: below_char_def)
+
+end
+
+instance list :: (discrete_cpo)discrete_cpo
+proof
+  fix x y :: "'a list"
+  show "(x \<sqsubseteq> y) = (x = y)"
+    apply (induct x arbitrary: y)
+    by (case_tac[!] y, simp_all)
+qed
+
+definition bot_ty :: T where
+  "bot_ty = Abs_T (\<Lambda> v. \<bottom>)"
+
+types constr_spec = "Id \<times> T list"
+
+-- "Auxiliary function used to produce a curried constructor."
+fun constr_aux :: "Id \<Rightarrow> T list \<Rightarrow> V finlist \<rightarrow> V" where
+   "constr_aux nm [] = (\<Lambda> args.
+      Vcon\<cdot>(Def nm)\<cdot>args)"
+|  "constr_aux nm (ty # tys) = (\<Lambda> x.
+      Vfun\<cdot>(\<Lambda> y. constr_aux nm tys\<cdot>(snoc\<cdot>x\<cdot>y)))"
+
+-- "Builds a curried constructor."
+definition
+  constr :: "Id \<Rightarrow> T list \<Rightarrow> V" where
+ "constr nm tys = constr_aux nm tys\<cdot><>"
+
+fun app_tys :: "T list \<Rightarrow> V finlist \<rightarrow> V finlist" where
+  "app_tys [] = (\<Lambda> <>. <>)"
+| "app_tys (ty#tys) = (\<Lambda> (x##xs).
+     Rep_T ty\<cdot>x ## app_tys tys\<cdot>xs)"
+
+fun data_type :: "(Id \<times> T list) list \<Rightarrow> T" where
+  "data_type [] = bot_ty"
+| "data_type (p # rest) =
+     (case p of
+        (cn,tys) \<Rightarrow> Abs_T (\<Lambda> (Vcon\<cdot>nm\<cdot>xs).
+          (FLIFT nm'.
+             if nm' = cn 
+             then Vcon\<cdot>nm\<cdot>(app_tys tys\<cdot>xs)
+             else (Rep_T (data_type rest))\<cdot>(Vcon\<cdot>nm\<cdot>xs))\<cdot>nm))"
+
+lemmas cont2cont_Rep_T[simp, cont2cont] = cont_Rep_T[THEN cont_compose]
+
+declare cont_Abs_T[simp, cont2cont]
+
+lemma cont_app_tys[THEN cont_compose, simp]:
+  "cont app_tys"
+apply (rule list_contI)
+   apply (rule app_tys.simps)
+by simp_all
+
+lemma cont_data_type[THEN cont_compose, simp, cont2cont]:
+  "cont data_type"
+apply (rule list_contI)
+   apply (rule data_type.simps)
+by (simp_all add: prod_case_beta)
 
 end
