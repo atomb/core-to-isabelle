@@ -67,8 +67,14 @@ new_domain 'a finlist =
     Snil                   ("<>")
   | Scons (lazy 'a) "('a finlist)"  (infixl "##" 70)
 
+syntax "_slist" :: "args => logic" ("<|(_)|>")
+
+translations
+ "<|x, xs|>" == "x ## <|xs|>"
+ "<|x|>" == "x ## <>"
+
 fixrec snoc :: "'a finlist \<rightarrow> 'a \<rightarrow> 'a finlist" where
-  "snoc\<cdot><>\<cdot>y = y ## <>"
+  "snoc\<cdot><>\<cdot>y = <|y|>"
 | "xs \<noteq> \<bottom> \<Longrightarrow> snoc\<cdot>(x ## xs)\<cdot>y = x ## (snoc\<cdot>xs\<cdot>y)"
 
 new_domain V =
@@ -208,11 +214,6 @@ lemma cont2cont_match[THEN cont_compose, simp, cont2cont]:
   "cont else_branch \<Longrightarrow>
    cont (match nm branch else_branch)"
 by (auto simp add: match_def)
-
--- "flsplit is used inside match-branches to pattern match on non-empty finlists."
--- "REVISIT: Replace occurrences of flsplit with (\<Lambda> (x ## <>). ...) patterns."
-fixrec flsplit :: "('a \<rightarrow> 'a finlist \<rightarrow> 'b) \<rightarrow> 'a finlist \<rightarrow> 'b" where
-  "xs \<noteq> \<bottom> \<Longrightarrow> flsplit\<cdot>f\<cdot>(x ## xs) = f\<cdot>x\<cdot>xs"
 
 
 section "Datatypes"
