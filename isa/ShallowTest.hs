@@ -72,5 +72,5 @@ main = do
   [f] <- getArgs 
   p <- parseCore f
   case p of
-    Left _ -> putStrLn "Failed"
+    Left e -> putStrLn $ "Failed: " ++ show e
     Right m -> putStrLn $ header ++ "\n" ++ (embedM $ processModule m)

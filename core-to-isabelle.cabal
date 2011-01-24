@@ -16,6 +16,11 @@ executable core-to-isabelle
        ghc-options:      -optl-Wl,-dead_strip
     ghc-prof-options:    -auto-all
     build-depends:       base > 4,
-                         ghc == 6.12.*,
+                         ghc >= 6.12 && < 8,
                          ghc-paths,
                          process == 1.0.*
+
+executable ShallowTest 
+    hs-source-dirs:      isa
+    main-is:             ShallowTest.hs
+    build-depends:       extcore == 1.*
