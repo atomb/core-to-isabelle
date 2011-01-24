@@ -1,5 +1,6 @@
 import Language.Core.Core
-import Language.Core.ParsecParser
+import Language.Core.Parser
+import Language.Core.ParseGlue
 import System.Environment
 
 processModule :: Module -> IsaDefs
@@ -69,8 +70,8 @@ convert (Note _ e) = convert e
 convert (External _ _) = undefined
 
 main = do
-  [f] <- getArgs 
-  p <- parseCore f
-  case p of
-    Left e -> putStrLn $ "Failed: " ++ show e
-    Right m -> putStrLn $ header ++ "\n" ++ (embedM $ processModule m)
+  [f] <- getArgs
+  c   <- readFile f
+  case parse c 0 of
+    FailP s -> putStrLn $ "Failed: " ++ s
+    OkP m   -> putStrLn $ header ++ "\n" ++ (embedM $ processModule m)
