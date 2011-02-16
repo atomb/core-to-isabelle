@@ -4,8 +4,8 @@ begin
 
 nonterminal hval
 nonterminal hvals
-nonterminal hpat
-nonterminal hpats
+nonterminal harg
+nonterminal hargs
 nonterminal htyp
 nonterminal hidt
 nonterminal hkind
@@ -87,22 +87,22 @@ setup {*
 text "Lambda abstractions"
 
 syntax
-  "_habs"  :: "hpat => hval => hval"
-  "_hlam"  :: "hpats => hval => hval"   ("(3\<lambda>_./ _)" [0, 3] 3)
-  "_hpat"  :: "hpat => hpats"           ("_")
-  "_hpats" :: "hpat => hpats => hpats"  ("_/ _" [1, 0] 0)
-  "_hvpat" :: "id => htyp => hpat"      ("'(_::_')")
-  "_htpat" :: "hidt => hpat"            ("@_")
+  "_habs"  :: "harg => hval => hval"
+  "_hlam"  :: "hargs => hval => hval"   ("(3\<lambda>_./ _)" [0, 3] 3)
+  "_harg"  :: "harg => hargs"           ("_")
+  "_hargs" :: "harg => hargs => hargs"  ("_/ _" [1, 0] 0)
+  "_hvarg" :: "id => htyp => harg"      ("'(_::_')")
+  "_htarg" :: "hidt => harg"            ("@_")
   ""       :: "id => hidt"              ("_")
   "_hidt"  :: "id => hkind => hidt"     ("'(_::_')")
 translations
-  "_hlam (_hpats p ps) r" == "_hlam (_hpat p) (_hlam ps r)"
-  "_hlam (_hpat p) r" == "_habs p r"
-  "_habs (_hvpat x t) r" => "CONST V_lam t (_abs x r)"
-  "_habs (_htpat (_hidt a k)) r" => "CONST T_lam (_abs (_constrain a k) r)"
-  "_habs (_htpat a) r" => "CONST T_lam (_abs a r)"
-  "_hquote (_habs (_hvpat x (_hunquote t)) (_hunquote r))" <= "CONST V_lam t (_abs x r)"
-  "_hquote (_habs (_htpat a) (_hunquote r))" <= "CONST T_lam (_abs a r)"
+  "_hlam (_hargs p ps) r" == "_hlam (_harg p) (_hlam ps r)"
+  "_hlam (_harg p) r" == "_habs p r"
+  "_habs (_hvarg x t) r" => "CONST V_lam t (_abs x r)"
+  "_habs (_htarg (_hidt a k)) r" => "CONST T_lam (_abs (_constrain a k) r)"
+  "_habs (_htarg a) r" => "CONST T_lam (_abs a r)"
+  "_hquote (_habs (_hvarg x (_hunquote t)) (_hunquote r))" <= "CONST V_lam t (_abs x r)"
+  "_hquote (_habs (_htarg a) (_hunquote r))" <= "CONST T_lam (_abs a r)"
 
 text "Application of terms to types"
 
@@ -130,6 +130,34 @@ translations
 (* TODO: show kind annotations when necessary *)
 (* use advanced print_translation for this *)
 
+text "Case expressions"
+
+nonterminal hmatch
+nonterminal hpat
+
+syntax
+  "_hmquote"  :: "hmatch => logic"  ("\<langle>\<langle>_\<rangle>\<rangle>")
+  "_hmunquote" :: "logic => hmatch"  ("\<lbrace>_\<rbrace>")
+  "_hcase"     :: "htyp => hval => id => hmatch => hval"
+      ("case '(_')/ _/ of _/ {(_)}")
+  "_hwild"     :: "hval => hmatch" ("('_ \<rightarrow>/ _)")
+  "_hmatch"    :: "hpat => hval => hmatch => hmatch" ("(_ \<rightarrow>/ _);/ _")
+  "_hmatch1"   :: "hpat => hval => hmatch" ("(_ \<rightarrow>/ _)")
+  "_hpat"      :: "hpat => harg => hpat" ("_/ _")
+  ""           :: "longid => hpat" ("_")
+  ""           :: "id => hpat" ("_")
+
+translations
+  "_hmquote x" => "x"
+  "_hmunquote x" => "x"
+  "x" <= "_hmunquote (_hmquote x)"
+  "_hcase t v w m" => "CONST cases t v (_abs w m)"
+  "_hquote (_hcase (_hunquote t) (_hunquote v) w (_hmunquote m))" <= "CONST cases t v (_abs w m)"
+  "_hmatch1 p r" == "_hmatch p r (CONST endmatch')"
+  "CONST endmatch'" <= "_hmunquote (CONST endmatch')"
+  "_hwild r" => "CONST allmatch r"
+  "_hmquote (_hwild (_hunquote r))" <= "CONST allmatch r"
+
 text "Examples"
 
 term "\<langle>forall a. a \<rightarrow> a\<rangle>"
@@ -144,5 +172,6 @@ term "\<guillemotleft>\<lambda> @a (x::a). x\<guillemotright>"
 term "\<guillemotleft>\<lambda> @(m::* \<rightarrow> * \<rightarrow> *). x\<guillemotright>"
 term "\<guillemotleft>\<lambda> @(m::(\<star> \<rightarrow> *) \<rightarrow> * \<rightarrow> *) @(a::\<star>). f@(m b a) x\<guillemotright>"
 term "\<guillemotleft>\<lambda> @a (x::a). f @a x\<guillemotright>"
+term "\<guillemotleft>case (t) v of w {_ \<rightarrow> g}\<guillemotright>"
 
 end

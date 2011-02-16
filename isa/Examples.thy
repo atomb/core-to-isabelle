@@ -149,6 +149,20 @@ definition "Nothing = \<guillemotleft>\<lambda>@(a::\<star>). \<lbrace>Vcon\<cdo
 
 definition "Just = \<guillemotleft>\<lambda>@(a::\<star>) (x::a). \<lbrace>Vcon\<cdot>''Just''\<cdot>[x]\<rbrace>\<guillemotright>"
 
+text "Case expression syntax for Maybe type"
+
+translations
+  "_hmatch (XCONST Nothing) r m"
+    => "CONST match ''Nothing'' (CONST branch0 r) m"
+  "_hmquote (_hmatch (XCONST Nothing) (_hunquote r) (_hmunquote m))"
+    <= "CONST match ''Nothing'' (CONST branch0 r) m"
+
+translations
+  "_hmatch (_hpat (XCONST Just) (_hvarg x a)) r m"
+    => "CONST match ''Just'' (CONST branchV a (\<lambda>x. CONST branch0 r)) m"
+  "_hmquote (_hmatch (_hpat (XCONST Just) (_hvarg x (_hunquote a))) (_hunquote r) (_hmunquote m))"
+    <= "CONST match ''Just'' (CONST branchV a (\<lambda>x. CONST branch0 r)) m"
+
 lemma has_type_Nothing [type_rule]:
   "Nothing ::: \<langle>forall a. Maybe a\<rangle>"
 unfolding Nothing_def Maybe_unfold
@@ -161,15 +175,39 @@ unfolding Just_def Maybe_unfold
 by (intro type_rule cont_rule cont2cont has_type_datatype_intro1
   has_type_datatype_intro2 have_types.intros) simp_all
 
+lemma Nothing_eq_Vcon:
+  fixes a :: "\<star>" shows "\<guillemotleft>Nothing @a\<guillemotright> = Vcon\<cdot>''Nothing''\<cdot>[]"
+by (simp add: Nothing_def T_beta)
+
+lemma Just_eq_Vcon:
+  assumes "x ::: a" shows "\<guillemotleft>Just @a x\<guillemotright> = Vcon\<cdot>''Just''\<cdot>[x]"
+using assms by (simp add: Just_def T_beta V_beta cont_rule)
+
 lemma Maybe_cases:
   assumes "y ::: \<langle>Maybe a\<rangle>"
   obtains "y = \<bottom>"
   | "y = \<guillemotleft>Nothing @a\<guillemotright>"
   | x where "x ::: a" and "y = \<guillemotleft>Just @a x\<guillemotright>"
 using assms unfolding Maybe_unfold
-apply (simp add: Nothing_def T_beta)
-apply (simp add: Just_def T_beta V_beta cont_rule)
+apply (simp add: Nothing_eq_Vcon Just_eq_Vcon)
 apply (auto elim!: has_type_datatype_elims)
+done
+
+lemma cases_bottom: "cases t \<bottom> f = \<bottom>"
+unfolding cases_def by simp
+
+text "Simplifying case expressions on Maybe datatype:"
+
+lemma case_Maybe:
+  fixes a :: "\<star>" shows
+  "\<guillemotleft>case (t) (Nothing @a) of w {Nothing \<rightarrow> \<lbrace>f w\<rbrace>; \<lbrace>m w\<rbrace>}\<guillemotright> = f \<guillemotleft>Nothing @a\<guillemotright>"
+  "\<guillemotleft>case (t) (Nothing @a) of w {Just (x::a) \<rightarrow> \<lbrace>g w x\<rbrace>; \<lbrace>m w\<rbrace>}\<guillemotright> = \<guillemotleft>case (t) (Nothing @a) of w {\<lbrace>m w\<rbrace>}\<guillemotright>"
+  "x ::: a \<Longrightarrow> \<guillemotleft>case (t) (Just @a x) of w {Nothing \<rightarrow> \<lbrace>f w\<rbrace>; \<lbrace>m w\<rbrace>}\<guillemotright> = \<guillemotleft>case (t) (Just @a x) of w {\<lbrace>m w\<rbrace>}\<guillemotright>"
+  "\<lbrakk>\<And>w. cont (\<lambda>y. g w y); x ::: a\<rbrakk> \<Longrightarrow> \<guillemotleft>case (t) (Just @a x) of w {Just (y::a) \<rightarrow> \<lbrace>g w y\<rbrace>; \<lbrace>m w\<rbrace>}\<guillemotright> = g \<guillemotleft>Just @a x\<guillemotright> x"
+apply (simp add: Nothing_eq_Vcon cases_match_eq B_rep_branch0)
+apply (simp add: Nothing_eq_Vcon cases_match_neq)
+apply (simp add: Just_eq_Vcon cases_match_neq)
+apply (simp add: Just_eq_Vcon cases_match_eq B_rep_branch0 B_rep_branchV cont_rule)
 done
 
 subsection "Example from Maybe.hcr"
@@ -177,15 +215,8 @@ subsection "Example from Maybe.hcr"
 definition
   "maybemap =
    \<guillemotleft>\<lambda> @aady @badzz (fadm :: aady \<rightarrow> badzz) (dsddB :: Maybe aady).
-   \<lbrace>cases \<langle>Maybe badzz\<rangle> dsddB (\<lambda>wildB1.
-      match ''Nothing'' (branch0 \<guillemotleft>Nothing @badzz\<guillemotright>) (
-      match ''Just'' (branchV aady (\<lambda>xado. branch0 \<guillemotleft>Just @badzz (fadm xado)\<guillemotright>))
-      endmatch'))\<rbrace>\<guillemotright>"
-
-(* TODO: custom syntax for case expressions *)
-
-lemma cases_bottom: "cases t \<bottom> f = \<bottom>"
-unfolding cases_def by simp
+    case (Maybe badzz) dsddB of wildB1
+    {Nothing \<rightarrow> Nothing @badzz; Just (xado::aady) \<rightarrow> Just @badzz (fadm xado)}\<guillemotright>"
 
 lemma maybemap_bottom:
   assumes [type_rule]: "f ::: \<langle>a \<rightarrow> b\<rangle>"
@@ -194,35 +225,36 @@ unfolding maybemap_def
 apply (simp add: T_beta V_beta cont_rule type_rule has_type_bottom)
 apply (simp add: cases_bottom)
 done
-  
-lemma maybemap_Nothing:
-  assumes [type_rule]: "f ::: \<langle>a \<rightarrow> b\<rangle>"
-  shows "\<guillemotleft>maybemap @a @b f (Nothing @a)\<guillemotright> = \<guillemotleft>Nothing @b\<guillemotright>"
+
+lemma maybemap_beta:
+  assumes [type_rule]: "f ::: \<langle>a \<rightarrow> b\<rangle>" "m ::: \<langle>Maybe a\<rangle>"
+  shows "\<guillemotleft>maybemap @a @b f m\<guillemotright> = \<guillemotleft>case (Maybe b) m of w
+    {Nothing \<rightarrow> Nothing @b; Just (x::a) \<rightarrow> Just @b (f x)}\<guillemotright>"
 unfolding maybemap_def
 apply (subst T_beta, intro cont_rule)
 apply (subst T_beta, intro cont_rule)
 apply (subst V_beta, intro cont_rule)
 apply (rule type_rule)
-apply (subst V_beta, intro cont_rule)
+apply (rule V_beta, intro cont_rule)
 apply (intro type_rule cont_rule)
-apply (simp add: Nothing_def T_beta)
-apply (simp add: cases_match_eq B_rep_branch0)
+done
+
+lemma maybemap_Nothing:
+  assumes [type_rule]: "f ::: \<langle>a \<rightarrow> b\<rangle>"
+  shows "\<guillemotleft>maybemap @a @b f (Nothing @a)\<guillemotright> = \<guillemotleft>Nothing @b\<guillemotright>"
+apply (subst maybemap_beta)
+apply (rule type_rule)
+apply (intro type_rule cont_rule)
+apply (simp add: case_Maybe)
 done
 
 lemma maybemap_Just:
   assumes [type_rule]: "f ::: \<langle>a \<rightarrow> b\<rangle>"
   assumes [type_rule]: "x ::: \<langle>a\<rangle>"
   shows "\<guillemotleft>maybemap @a @b f (Just @a x)\<guillemotright> = \<guillemotleft>Just @b (f x)\<guillemotright>"
-unfolding maybemap_def
-apply (subst T_beta, intro cont_rule)
-apply (subst T_beta, intro cont_rule)
-apply (subst V_beta, intro cont_rule)
-apply (rule type_rule)
-apply (subst V_beta, intro cont_rule)
+apply (subst maybemap_beta)
 apply (rule type_rule cont_rule)+
-apply (subst Just_def, simp add: T_beta V_beta type_rule cont_rule)
-apply (simp add: cases_match_neq cases_match_eq
-  B_rep_branchV B_rep_branch0 cont_rule type_rule)
+apply (simp add: case_Maybe type_rule cont_rule)
 done
 
 lemma has_type_maybemap [type_rule]:
@@ -232,18 +264,9 @@ apply (rule type_rule cont_rule)+
 (* TODO: make some generic typing rules for cases *)
 apply (erule Maybe_cases)
 apply (simp add: cases_bottom has_type_bottom)
-apply (simp, subst Nothing_def, simp add:T_beta)
-apply (subst cases_match_eq)
-apply (simp add: B_rep_branch0)
+apply (simp add: case_Maybe)
 apply (intro type_rule cont_rule)
-apply (simp, subst Just_def)
-apply (simp add: T_beta V_beta cont_rule)
-apply (subst cases_match_neq, simp)
-apply (subst cases_match_eq)
-apply (subst B_rep_branchV)
-apply (intro cont_rule)
-apply assumption
-apply (subst B_rep_branch0)
+apply (simp add: case_Maybe cont_rule type_rule)
 apply (rule type_rule cont_rule | assumption)+
 done
 
