@@ -7,147 +7,17 @@ begin
 
 subsection {* Domain definitions for Core values and types *}
 
-text {*
-
-domain V =
-    Vint (lazy "int")
+domain V
+  = Vint (lazy "int")
   | Vcon (lazy "string") (lazy "V list")
   | Vfun (lazy "V \<rightarrow> V")
   | Vtfun (lazy "U \<rightarrow> V")
   | Wrong
-and U =
-  | Udefl "T"
+and U
+  = Udefl "T"
   | Ufun "U \<rightarrow> U"
-and T = T_abs "V defl"
-
-domain equations:
-V \<cong> int\<^sub>\<bottom> \<oplus> (string\<^sub>\<bottom> \<otimes> (V list)\<^sub>\<bottom>) \<oplus> (V \<rightarrow> V)\<^sub>\<bottom> \<oplus> (U \<rightarrow> V)\<^sub>\<bottom> \<oplus> one
-U \<cong> T \<oplus> (U \<rightarrow> U)
-T \<cong> V defl
-
-*}
-
-fixrec
-  V_defl :: "udom defl" and
-  U_defl :: "udom defl" and
-  T_defl :: "udom defl"
-where [simp del]:
-  "V_defl = ssum_defl\<cdot>DEFL(int\<^sub>\<bottom>)\<cdot>
-       (ssum_defl\<cdot>
-        (sprod_defl\<cdot>DEFL(char list\<^sub>\<bottom>)\<cdot>
-         (u_liftdefl\<cdot>(list_liftdefl\<cdot>(liftdefl_of\<cdot>V_defl))))\<cdot>
-        (ssum_defl\<cdot>(u_defl\<cdot>(sfun_defl\<cdot>(u_defl\<cdot>V_defl)\<cdot>V_defl))\<cdot>
-         (ssum_defl\<cdot>(u_defl\<cdot>(sfun_defl\<cdot>(u_defl\<cdot>U_defl)\<cdot>V_defl))\<cdot>DEFL(one))))"
-| [simp del]:
-  "U_defl = ssum_defl\<cdot>T_defl\<cdot>(sfun_defl\<cdot>(u_defl\<cdot>U_defl)\<cdot>U_defl)"
-| [simp del]:
-  "T_defl = defl_defl\<cdot>V_defl"
-
-domaindef V = "V_defl"
-domaindef U = "U_defl"
-domaindef T = "T_defl"
-
-lemma DEFL_V': "DEFL(V) = DEFL(int\<^sub>\<bottom> \<oplus> (string\<^sub>\<bottom> \<otimes> (V list)\<^sub>\<bottom>) \<oplus> (V \<rightarrow> V)\<^sub>\<bottom> \<oplus> (U \<rightarrow> V)\<^sub>\<bottom> \<oplus> one)"
-unfolding domain_defl_simps DEFL_V DEFL_U DEFL_T
-by (subst V_defl.unfold, simp add: domain_defl_simps)
-
-lemma DEFL_U': "DEFL(U) = DEFL(T \<oplus> (U \<rightarrow> U))"
-unfolding domain_defl_simps DEFL_V DEFL_U DEFL_T
-by (subst U_defl.unfold, simp add: domain_defl_simps)
-
-lemma DEFL_T': "DEFL(T) = DEFL(V defl)"
-unfolding domain_defl_simps DEFL_V DEFL_U DEFL_T
-by (rule T_defl.unfold)
-
-definition
-  V_rep :: "V \<rightarrow> (int\<^sub>\<bottom> \<oplus> (string\<^sub>\<bottom> \<otimes> (V list)\<^sub>\<bottom>) \<oplus> (V \<rightarrow> V)\<^sub>\<bottom> \<oplus> (U \<rightarrow> V)\<^sub>\<bottom> \<oplus> one)"
-  where "V_rep \<equiv> prj oo emb"
-
-definition
-  V_abs :: "(int\<^sub>\<bottom> \<oplus> (string\<^sub>\<bottom> \<otimes> (V list)\<^sub>\<bottom>) \<oplus> (V \<rightarrow> V)\<^sub>\<bottom> \<oplus> (U \<rightarrow> V)\<^sub>\<bottom> \<oplus> one) \<rightarrow> V"
-  where "V_abs \<equiv> prj oo emb"
-
-definition U_rep :: "U \<rightarrow> (T \<oplus> (U \<rightarrow> U))"
-  where "U_rep \<equiv> prj oo emb"
-
-definition U_abs :: "(T \<oplus> (U \<rightarrow> U)) \<rightarrow> U"
-  where "U_abs \<equiv> prj oo emb"
-
-definition T_rep :: "T \<rightarrow> V defl"
-  where "T_rep \<equiv> prj oo emb"
-
-definition T_abs :: "V defl \<rightarrow> T"
-  where "T_abs \<equiv> prj oo emb"
-
-lemma V_abs_iso: "V_rep\<cdot>(V_abs\<cdot>x) = x"
-by (rule domain_abs_iso [OF DEFL_V' V_abs_def V_rep_def])
-
-lemma V_rep_iso: "V_abs\<cdot>(V_rep\<cdot>x) = x"
-by (rule domain_rep_iso [OF DEFL_V' V_abs_def V_rep_def])
-
-lemma U_abs_iso: "U_rep\<cdot>(U_abs\<cdot>x) = x"
-by (rule domain_abs_iso [OF DEFL_U' U_abs_def U_rep_def])
-
-lemma U_rep_iso: "U_abs\<cdot>(U_rep\<cdot>x) = x"
-by (rule domain_rep_iso [OF DEFL_U' U_abs_def U_rep_def])
-
-lemma T_abs_iso: "T_rep\<cdot>(T_abs\<cdot>x) = x"
-by (rule domain_abs_iso [OF DEFL_T' T_abs_def T_rep_def])
-
-lemma T_rep_iso: "T_abs\<cdot>(T_rep\<cdot>x) = x"
-by (rule domain_rep_iso [OF DEFL_T' T_abs_def T_rep_def])
-
-setup {* fn thy =>
-  let
-    val dbind = @{binding V};
-    val spec =
-      [
-        (@{binding Vint}, [(true, NONE, @{typ "int"})], NoSyn),
-        (@{binding Vcon}, [(true, NONE, @{typ "string"}), (true, NONE, @{typ "V list"})], NoSyn),
-        (@{binding Vfun}, [(true, NONE, @{typ "V \<rightarrow> V"})], NoSyn),
-        (@{binding Vtfun}, [(true, NONE, @{typ "U \<rightarrow> V"})], NoSyn),
-        (@{binding Wrong}, [], NoSyn)
-      ]
-    val iso : Domain_Take_Proofs.iso_info =
-      {
-        absT = @{typ "V"},
-        repT = @{typ "int\<^sub>\<bottom> \<oplus> (string\<^sub>\<bottom> \<otimes> (V list)\<^sub>\<bottom>) \<oplus> (V \<rightarrow> V)\<^sub>\<bottom> \<oplus> (U \<rightarrow> V)\<^sub>\<bottom> \<oplus> one"},
-        abs_const = @{term V_abs},
-        rep_const = @{term V_rep},
-        abs_inverse = @{thm V_abs_iso},
-        rep_inverse = @{thm V_rep_iso}
-      }
-    val (constr_info, thy) =
-        Domain_Constructors.add_domain_constructors dbind spec iso thy
-  in
-    thy
-  end
-*}
-
-setup {* fn thy =>
-  let
-    val dbind = @{binding U}
-    val spec =
-      [
-        (@{binding Udefl}, [(false, NONE, @{typ "T"})], NoSyn),
-        (@{binding Ufun}, [(false, NONE, @{typ "U \<rightarrow> U"})], NoSyn)
-      ]
-    val iso : Domain_Take_Proofs.iso_info =
-      {
-        absT = @{typ "U"},
-        repT = @{typ "T \<oplus> (U \<rightarrow> U)"},
-        abs_const = @{term U_abs},
-        rep_const = @{term U_rep},
-        abs_inverse = @{thm U_abs_iso},
-        rep_inverse = @{thm U_rep_iso}
-      }
-    val (constr_info, thy) =
-        Domain_Constructors.add_domain_constructors dbind spec iso thy
-  in
-    thy
-  end
-*}
-
+and T ("\<star>")
+  = MkT "V defl"
 
 
 subsection {* Class of kinds *}
@@ -161,8 +31,6 @@ class kind = "domain" +
 
 interpretation kind: pcpo_ep_pair to_U of_U
 unfolding pcpo_ep_pair_def by (rule kind)
-
-type_notation T ("\<star>")
 
 instantiation T :: kind
 begin
@@ -260,7 +128,7 @@ lemma cast_T_rep_funT:
   "cast\<cdot>(T_rep\<cdot>(T_apply (T_apply funT a) b)) = fup\<cdot>Vfun oo
     u_map\<cdot>(cfun_map\<cdot>(cast\<cdot>(T_rep\<cdot>a))\<cdot>(cast\<cdot>(T_rep\<cdot>b))) oo
     V_case\<cdot>\<bottom>\<cdot>\<bottom>\<cdot>up\<cdot>\<bottom>\<cdot>\<bottom>"
-apply (simp add: funT_def T_abs_iso T_apply_def)
+apply (simp add: funT_def T_apply_def)
 apply (subst cast_defl_fun2)
 apply (rule ep_pair.intro)
 apply (case_tac x, simp, simp)
@@ -377,7 +245,7 @@ lemma cast_T_rep_forallT:
   shows "cast\<cdot>(T_rep\<cdot>(forallT h)) = fup\<cdot>Vtfun oo
     u_map\<cdot>(\<Lambda> f x. cast\<cdot>(T_rep\<cdot>(h (of_U\<cdot>x)))\<cdot>(f\<cdot>x)) oo
     V_case\<cdot>\<bottom>\<cdot>\<bottom>\<cdot>\<bottom>\<cdot>up\<cdot>\<bottom>"
-unfolding forallT_def T_abs_iso
+unfolding forallT_def T.abs_iso
 apply (subst cast_defl_fun1)
 apply (rule ep_pair.intro)
 apply (case_tac x, simp, simp)
@@ -481,7 +349,7 @@ unfolding datatype_def by simp
 lemma cast_datatype:
   "cast\<cdot>(T_rep\<cdot>(datatype xs)) = (\<Lambda>(Vcon\<cdot>s\<cdot>vs). ssplit\<cdot>(\<Lambda> (up\<cdot>s).
     fup\<cdot>(Vcon\<cdot>s))\<cdot>(:up\<cdot>s, cast\<cdot>(lookup_defls\<cdot>xs\<cdot>s)\<cdot>(up\<cdot>vs):))"
-unfolding datatype_def T_abs_iso
+unfolding datatype_def T.abs_iso
 apply (subst cast_defl_fun1)
 apply (rule ep_pair.intro)
 apply (case_tac x, simp, rename_tac a b)
