@@ -144,8 +144,10 @@ syntax
   "_hmatch"    :: "hpat => hval => hmatch => hmatch" ("(_ \<rightarrow>/ _);/ _")
   "_hmatch1"   :: "hpat => hval => hmatch" ("(_ \<rightarrow>/ _)")
   "_hpat"      :: "hpat => harg => hpat" ("_/ _")
-  ""           :: "longid => hpat" ("_")
-  ""           :: "id => hpat" ("_")
+  "_hcon"      :: "longid => hpat" ("_")
+  "_hcon"      :: "id => hpat" ("_")
+  "_hbranch"   :: "hpat => any => hmatch"
+  "_htag"      :: "any => hpat"
 
 translations
   "_hmquote x" => "x"
@@ -155,6 +157,12 @@ translations
   "_hquote (_hcase (_hunquote t) (_hunquote v) w (_hmunquote m))" <= "CONST cases t v (_abs w m)"
   "_hmatch1 p r" == "_hmatch p r (CONST endmatch')"
   "CONST endmatch'" <= "_hmunquote (CONST endmatch')"
+  "_hmatch p r m" => "_hbranch p (CONST branch0 r) m"
+  "_hmatch p (_hunquote r) m" <= "_hbranch p (CONST branch0 r) m"
+  "_hbranch (_hpat p (_hvarg x t)) b m"
+      == "_hbranch p (CONST branchV t (_abs x b)) m"
+  "_hbranch s b m" => "CONST match s b m"
+  "_hmquote (_hbranch (_htag s) b (_hmunquote m))" <= "CONST match s b m"
   "_hwild r" => "CONST allmatch r"
   "_hmquote (_hwild (_hunquote r))" <= "CONST allmatch r"
 

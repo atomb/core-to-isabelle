@@ -152,16 +152,10 @@ definition "Just = \<guillemotleft>\<lambda>@(a::\<star>) (x::a). \<lbrace>Vcon\
 text "Case expression syntax for Maybe type"
 
 translations
-  "_hmatch (XCONST Nothing) r m"
-    => "CONST match ''Nothing'' (CONST branch0 r) m"
-  "_hmquote (_hmatch (XCONST Nothing) (_hunquote r) (_hmunquote m))"
-    <= "CONST match ''Nothing'' (CONST branch0 r) m"
-
-translations
-  "_hmatch (_hpat (XCONST Just) (_hvarg x a)) r m"
-    => "CONST match ''Just'' (CONST branchV a (\<lambda>x. CONST branch0 r)) m"
-  "_hmquote (_hmatch (_hpat (XCONST Just) (_hvarg x (_hunquote a))) (_hunquote r) (_hmunquote m))"
-    <= "CONST match ''Just'' (CONST branchV a (\<lambda>x. CONST branch0 r)) m"
+  "_hcon (XCONST Nothing)" => "''Nothing''"
+  "CONST Nothing" <= "_htag ''Nothing''"
+  "_hcon (XCONST Just)" => "''Just''"
+  "CONST Just" <= "_htag ''Just''"
 
 lemma has_type_Nothing [type_rule]:
   "Nothing ::: \<langle>forall a. Maybe a\<rangle>"
