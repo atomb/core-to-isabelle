@@ -11,10 +11,16 @@ functions, etc.
 
 ML {*
 
+val parse_tbind : (string * string option) parser =
+  (Parse.short_ident >> rpair NONE) ||
+  (Parse.$$$ "(" |-- Parse.short_ident --| Parse.$$$ "::" --
+    (Parse.typ >> SOME) --| Parse.$$$ ")")
+
 val parse_halicore_data_decl :
-    ((binding * string list) * (binding * string list) list) list parser =
+    ((binding * (string * string option) list) *
+     (binding * string list) list) list parser =
   Parse.and_list
-    (Parse.binding -- Scan.repeat Parse.short_ident --
+    (Parse.binding -- Scan.repeat parse_tbind --
       (Parse.$$$ "=" |-- Parse.enum1 "|"
         (Parse.binding -- Scan.repeat Parse.term)))
 *}
@@ -39,7 +45,7 @@ halicore_data List a = Nil | Cons "a" "List a"
 halicore_data Tree a = Node "Forest a"
 and Forest a = Empty | Trees "Tree a" "Forest a"
 
-halicore_data Tree2 m = Tip | Branch "m (Tree2 m)"
+halicore_data Tree2 (m :: "\<star> \<rightarrow> \<star>") = Tip | Branch "m (Tree2 m)"
 
 *)
 
