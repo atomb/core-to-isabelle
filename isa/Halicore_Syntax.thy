@@ -100,7 +100,7 @@ translations
   "_hlam (_harg p) r" == "_habs p r"
   "_habs (_hvarg x t) r" => "CONST V_lam t (_abs x r)"
   "_habs (_htarg (_hidt a k)) r" => "CONST T_lam (_abs (_constrain a k) r)"
-  "_habs (_htarg a) r" => "CONST T_lam (_abs a r)"
+  "_habs (_htarg a) r" => "CONST T_lam (_abs (a::T) r)"
   "_hquote (_habs (_hvarg x (_hunquote t)) (_hunquote r))" <= "CONST V_lam t (_abs x r)"
   "_hquote (_habs (_htarg a) (_hunquote r))" <= "CONST T_lam (_abs a r)"
 
