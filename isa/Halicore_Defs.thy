@@ -82,29 +82,6 @@ using assms unfolding T_apply_def by (rule cont2cont_APP)
 
 subsection {* Lambda calculus *}
 
-subsubsection {* Named rule lists for typing and continuity rules *}
-
-ML {*
-structure TypeRuleData = Named_Thms
-  (val name = "type_rule" val description = "typing intro rule")
-*}
-
-setup TypeRuleData.setup
-
-ML {*
-structure ContRuleData = Named_Thms
-  (val name = "cont_rule" val description = "cont intro rule")
-*}
-
-setup ContRuleData.setup
-
-text "Some default cont rules:"
-
-lemmas [cont_rule] =
-  cont_id cont_const cont2cont_APP cont_T_apply
-  cont2cont_fst cont2cont_snd
-
-
 subsubsection {* Typing relation *}
 
 definition has_type :: "V \<Rightarrow> T \<Rightarrow> bool" (infix ":::" 50)
@@ -144,13 +121,13 @@ definition V_app :: "V \<Rightarrow> V \<Rightarrow> V"
 definition V_lam :: "T \<Rightarrow> (V \<Rightarrow> V) \<Rightarrow> V"
   where "V_lam t f = Vfun\<cdot>(\<Lambda> x. f (cast\<cdot>(T_rep\<cdot>t)\<cdot>x))"
 
-lemma cont_V_app [cont_rule]:
+lemma cont_V_app [simp, cont2cont]:
   assumes u: "cont (\<lambda>x. u x)" and v: "cont (\<lambda>x. v x)"
   shows "cont (\<lambda>x. V_app (u x) (v x))"
 unfolding V_app_def
 by (simp add: cont_compose [OF u] cont_compose [OF v])
 
-lemma cont_V_lam [cont_rule]:
+lemma cont_V_lam [simp, cont2cont]:
   assumes t: "cont (\<lambda>x. t x)"
   assumes f: "cont (\<lambda>p. f (fst p) (snd p))"
   shows "cont (\<lambda>x. V_lam (t x) (\<lambda>y. f x y))"
@@ -164,7 +141,7 @@ proof -
     done
 qed
 
-lemma has_type_V_lam [type_rule]:
+lemma has_type_V_lam:
   assumes 1: "cont f"
   assumes 2: "\<And>x. x ::: a \<Longrightarrow> f x ::: b"
   shows "V_lam a (\<lambda>x. f x) ::: T_apply (T_apply funT a) b"
@@ -177,7 +154,7 @@ apply (rule has_type_def [THEN iffD2])
 apply simp
 done
 
-lemma has_type_V_app [type_rule]:
+lemma has_type_V_app:
   assumes f: "f ::: T_apply (T_apply funT a) b"
   assumes x: "x ::: a"
   shows "V_app f x ::: b"
@@ -208,13 +185,13 @@ definition T_app :: "V \<Rightarrow> 'k::kind \<Rightarrow> V"
   where "T_app v t = (case v of Vint\<cdot>n \<Rightarrow> Wrong | Vcon\<cdot>s\<cdot>xs \<Rightarrow> Wrong |
     Vfun\<cdot>f \<Rightarrow> Wrong | Vtfun\<cdot>f \<Rightarrow> f\<cdot>(to_U\<cdot>t) | Wrong \<Rightarrow> Wrong)"
 
-lemma cont_T_app [cont_rule]:
+lemma cont_T_app [simp, cont2cont]:
   assumes v: "cont (\<lambda>x. v x)"
   assumes t: "cont (\<lambda>x. t x)"
   shows "cont (\<lambda>x. T_app (v x) (t x))"
 unfolding T_app_def by (simp add: v cont_compose [OF t])
 
-lemma cont_T_abs [cont_rule]:
+lemma cont_T_abs [simp, cont2cont]:
   assumes "cont (\<lambda>p. f (fst p) (snd p))"
   shows "cont (\<lambda>x. T_lam (\<lambda>a. f x a))"
 proof -
@@ -229,7 +206,7 @@ definition forallT :: "('k::kind \<Rightarrow> T) \<Rightarrow> T"
   where "forallT h = T_abs\<cdot>(defl_fun1 (fup\<cdot>Vtfun) (V_case\<cdot>\<bottom>\<cdot>\<bottom>\<cdot>\<bottom>\<cdot>up\<cdot>\<bottom>) u_map\<cdot>
     (pi_defl\<cdot>ID_defl\<cdot>(\<Lambda> u. T_rep\<cdot>(h (of_U\<cdot>u)))))"
 
-lemma cont_forallT [cont_rule]:
+lemma cont_forallT [simp, cont2cont]:
   assumes f: "cont (\<lambda>p. f (fst p) (snd p))"
   shows "cont (\<lambda>x. forallT (\<lambda>a. f x a))"
 proof -
@@ -256,7 +233,7 @@ apply (subst cast_pi_defl)
 apply (simp add: h [THEN cont_compose])
 done
 
-lemma has_type_T_lam [type_rule]:
+lemma has_type_T_lam:
   assumes 1: "cont f"
   assumes 2: "cont h"
   assumes 3: "\<And>a. f a ::: h a"
@@ -268,7 +245,7 @@ apply (rule has_type_def [THEN iffD1])
 apply (rule 3)
 done
 
-lemma has_type_T_app [type_rule]:
+lemma has_type_T_app:
   assumes f: "f ::: forallT h"
   assumes h: "cont h"
   shows "T_app f a ::: h a"
@@ -443,12 +420,12 @@ lemma B_rep_branchV:
 unfolding branchV_def B.abs_iso
 by (simp add: cont_compose [OF f] x [unfolded has_type_def])
 
-theorem cont_branch0 [cont_rule]:
+theorem cont_branch0 [simp, cont2cont]:
   assumes "cont f" shows "cont (\<lambda>x. branch0 (f x))"
 using assms unfolding branch0_def
 by (simp add: cont2cont_LAM)
 
-theorem cont_branchV [cont_rule]:
+theorem cont_branchV [simp, cont2cont]:
   assumes "cont t" and "cont (\<lambda>p. f (fst p) (snd p))"
   shows "cont (\<lambda>x. branchV (t x) (\<lambda>y. f x y))"
 proof -
@@ -468,7 +445,7 @@ domain_isomorphism M = "V \<rightarrow>! V"
 definition allmatch :: "V \<Rightarrow> M"
   where "allmatch v = M_abs\<cdot>(sfun_abs\<cdot>(\<Lambda> x. v))"
 
-lemma cont_allmatch [cont_rule]:
+lemma cont_allmatch [simp, cont2cont]:
   assumes "cont f" shows "cont (\<lambda>x. allmatch (f x))"
 unfolding allmatch_def by (simp add: cont_compose [OF assms])
 
@@ -485,7 +462,7 @@ definition match :: "string \<Rightarrow> B \<Rightarrow> M \<Rightarrow> M"
     Vcon\<cdot>s'\<cdot>xs \<Rightarrow> if s = s' then B_rep\<cdot>b\<cdot>xs else sfun_rep\<cdot>(M_rep\<cdot>m)\<cdot>x |
     Vfun\<cdot>f \<Rightarrow> Wrong | Vtfun\<cdot>f \<Rightarrow> Wrong | Wrong \<Rightarrow> Wrong))"
 
-lemma cont_match [cont_rule]:
+lemma cont_match [simp, cont2cont]:
   assumes "cont b" and "cont m"
   shows "cont (\<lambda>x. match s (b x) (m x))"
 unfolding match_def
@@ -496,7 +473,7 @@ text "Case expressions"
 definition cases :: "T \<Rightarrow> V \<Rightarrow> (V \<Rightarrow> M) \<Rightarrow> V"
   where "cases t v m = sfun_rep\<cdot>(M_rep\<cdot>(m v))\<cdot>v"
 
-lemma cont_cases [cont_rule]:
+lemma cont_cases [simp, cont2cont]:
   assumes "cont v" and "cont (\<lambda>p. m (fst p) (snd p))"
   shows "cont (\<lambda>x. cases (t x) (v x) (\<lambda>w. m x w))"
 proof -
