@@ -1,5 +1,5 @@
 theory Examples
-imports Halicore_Syntax
+imports Halicore
 begin
 
 subsection "Polymorphic identity function"
@@ -9,17 +9,15 @@ definition "ident = \<guillemotleft>\<lambda> @a (x::a). x\<guillemotright>"
 lemma has_type_ident [type_rule]:
   "ident ::: \<langle>forall a. a \<rightarrow> a\<rangle>"
 unfolding ident_def
-by (intro type_rule cont_rule)
+by typecheck
 
 lemma ident: "x ::: a \<Longrightarrow> \<guillemotleft>ident @a x\<guillemotright> = \<guillemotleft>x\<guillemotright>"
 unfolding ident_def
-by (simp only: T_beta V_beta type_rule cont_rule)
+by (simp add: T_beta V_beta)
 
 lemma "\<guillemotleft>ident @(a \<rightarrow> a) (ident @a)\<guillemotright> = \<guillemotleft>ident @a\<guillemotright>"
 unfolding ident_def
-by (simp only: T_beta V_beta type_rule cont_rule)
-
-
+by (simp add: T_beta V_beta)
 
 subsection "Defining fmap in terms of return and bind"
 
@@ -35,7 +33,7 @@ definition
 lemma has_type_fmap [type_rule]:
   "mk_fmap ::: \<langle>forall m. (forall a. a \<rightarrow> m a) \<rightarrow> (forall a b. m a \<rightarrow> (a \<rightarrow> m b) \<rightarrow> m b) \<rightarrow> (forall a b. (a \<rightarrow> b) \<rightarrow> m a \<rightarrow> m b)\<rangle>"
 unfolding mk_fmap_def
-by (rule type_rule cont_rule | assumption)+
+by typecheck
 
 lemma funT_cases:
   assumes f: "f ::: \<langle>a \<rightarrow> b\<rangle>"
@@ -86,31 +84,29 @@ lemma
   assumes right_unit: "\<And>xs. xs ::: \<langle>m a\<rangle> \<Longrightarrow> \<guillemotleft>bind @a @a xs (return @a)\<guillemotright> = xs"
   shows "\<guillemotleft>mk_fmap @m return bind @a @a (ident @a)\<guillemotright> = \<guillemotleft>ident @(m a)\<guillemotright>"
 unfolding mk_fmap_def
-apply (simp only: T_beta V_beta type_rule cont_rule)
-apply (subst V_beta)
-apply (simp only: cont_rule)
-(* apply (rule has_type_T_app) back back back *)
-apply (rule type_rule cont_rule | assumption)+
+apply (simp add: T_beta V_beta)
 apply (rule V_ext)
-apply (rule type_rule cont_rule | assumption)+
+apply typecheck
+apply typecheck
 apply (rule V_lam_defined)
-apply (simp add: ident_def T_beta cont_rule V_lam_defined)
+apply (simp add: ident_def T_beta V_lam_defined)
 apply (rename_tac xs)
-apply (simp only: V_beta cont_rule)
+apply (simp add: V_beta)
 apply (simp add: ident)
 apply (rule_tac P="\<lambda>t. \<guillemotleft>bind @a @a xs t\<guillemotright> = xs" and s="\<guillemotleft>return @a\<guillemotright>" in ssubst)
 apply (rule V_ext)
-apply (rule type_rule cont_rule | assumption)+
+apply typecheck
+apply typecheck
 apply (rule V_lam_defined)
 apply (rule return_defined)
-apply (simp only: V_beta cont_rule type_rule)
-apply (simp only: ident)
+apply (simp add: V_beta)
+apply (simp add: ident)
 apply (erule right_unit)
 done
 
 lemma V_eta: "\<lbrakk>f ::: \<langle>a \<rightarrow> b\<rangle>; f \<noteq> \<bottom>\<rbrakk> \<Longrightarrow> \<guillemotleft>\<lambda>(x::a). f x\<guillemotright> = f"
 apply (erule funT_cases, simp)
-apply (simp cong: V_lam_cong add: V_beta cont_rule)
+apply (simp cong: V_lam_cong add: V_beta)
 done
 
 lemma
@@ -122,16 +118,13 @@ lemma
   assumes right_unit: "\<And>xs. xs ::: \<langle>m a\<rangle> \<Longrightarrow> \<guillemotleft>bind @a @a xs (return @a)\<guillemotright> = xs"
   shows "\<guillemotleft>mk_fmap @m return bind @a @a (ident @a)\<guillemotright> = \<guillemotleft>ident @(m a)\<guillemotright>"
 unfolding mk_fmap_def
-apply (simp only: T_beta V_beta type_rule cont_rule)
-apply (subst V_beta)
-apply (simp only: cont_rule)
-apply (rule type_rule cont_rule | assumption)+
+apply (simp add: T_beta V_beta)
 apply (simp cong: V_lam_cong add: ident)
 apply (subst V_eta)
-apply (rule type_rule cont_rule)+
+apply typecheck
 apply (rule return_defined)
 apply (simp cong: V_lam_cong add: right_unit)
-apply (simp add: ident_def T_beta cont_rule)
+apply (simp add: ident_def T_beta)
 done
 
 
@@ -140,6 +133,8 @@ subsection "Maybe datatype"
 
 fixrec Maybe :: "\<star> \<rightarrow> \<star>" where [simp del]:
   "Maybe\<cdot>a = datatype [(''Nothing'', []), (''Just'', [a])]"
+
+thm Maybe.simps [folded T_apply_def]
 
 lemma Maybe_unfold:
   "\<langle>Maybe a\<rangle> = datatype [(''Nothing'', []), (''Just'', [a])]"
@@ -160,13 +155,13 @@ translations
 lemma has_type_Nothing [type_rule]:
   "Nothing ::: \<langle>forall a. Maybe a\<rangle>"
 unfolding Nothing_def Maybe_unfold
-by (intro type_rule cont_rule cont2cont
+by (intro has_type_T_lam cont2cont
   has_type_datatype_intro1 have_types.intros)
 
 lemma has_type_Just [type_rule]:
   "Just ::: \<langle>forall a. a \<rightarrow> Maybe a\<rangle>"
 unfolding Just_def Maybe_unfold
-by (intro type_rule cont_rule cont2cont has_type_datatype_intro1
+by (intro has_type_T_lam has_type_V_lam cont2cont has_type_datatype_intro1
   has_type_datatype_intro2 have_types.intros) simp_all
 
 lemma Nothing_eq_Vcon:
@@ -175,7 +170,7 @@ by (simp add: Nothing_def T_beta)
 
 lemma Just_eq_Vcon:
   assumes "x ::: a" shows "\<guillemotleft>Just @a x\<guillemotright> = Vcon\<cdot>''Just''\<cdot>[x]"
-using assms by (simp add: Just_def T_beta V_beta cont_rule)
+using assms by (simp add: Just_def T_beta V_beta type_rule)
 
 lemma Maybe_cases:
   assumes "y ::: \<langle>Maybe a\<rangle>"
@@ -201,7 +196,7 @@ lemma case_Maybe:
 apply (simp add: Nothing_eq_Vcon cases_match_eq B_rep_branch0)
 apply (simp add: Nothing_eq_Vcon cases_match_neq)
 apply (simp add: Just_eq_Vcon cases_match_neq)
-apply (simp add: Just_eq_Vcon cases_match_eq B_rep_branch0 B_rep_branchV cont_rule)
+apply (simp add: Just_eq_Vcon cases_match_eq B_rep_branch0 B_rep_branchV)
 done
 
 subsection "Example from Maybe.hcr"
@@ -216,7 +211,7 @@ lemma maybemap_bottom:
   assumes [type_rule]: "f ::: \<langle>a \<rightarrow> b\<rangle>"
   shows "\<guillemotleft>maybemap @a @b f \<lbrace>\<bottom>\<rbrace>\<guillemotright> = \<bottom>"
 unfolding maybemap_def
-apply (simp add: T_beta V_beta cont_rule type_rule has_type_bottom)
+apply (simp add: T_beta V_beta has_type_bottom)
 apply (simp add: cases_bottom)
 done
 
@@ -225,64 +220,104 @@ lemma maybemap_beta:
   shows "\<guillemotleft>maybemap @a @b f m\<guillemotright> = \<guillemotleft>case (Maybe b) m of w
     {Nothing \<rightarrow> Nothing @b; Just (x::a) \<rightarrow> Just @b (f x)}\<guillemotright>"
 unfolding maybemap_def
-apply (subst T_beta, intro cont_rule)
-apply (subst T_beta, intro cont_rule)
-apply (subst V_beta, intro cont_rule)
-apply (rule type_rule)
-apply (rule V_beta, intro cont_rule)
-apply (intro type_rule cont_rule)
-done
+by (simp add: T_beta V_beta)
 
 lemma maybemap_Nothing:
   assumes [type_rule]: "f ::: \<langle>a \<rightarrow> b\<rangle>"
   shows "\<guillemotleft>maybemap @a @b f (Nothing @a)\<guillemotright> = \<guillemotleft>Nothing @b\<guillemotright>"
-apply (subst maybemap_beta)
-apply (rule type_rule)
-apply (intro type_rule cont_rule)
-apply (simp add: case_Maybe)
-done
+by (simp add: maybemap_beta case_Maybe)
 
 lemma maybemap_Just:
   assumes [type_rule]: "f ::: \<langle>a \<rightarrow> b\<rangle>"
   assumes [type_rule]: "x ::: \<langle>a\<rangle>"
   shows "\<guillemotleft>maybemap @a @b f (Just @a x)\<guillemotright> = \<guillemotleft>Just @b (f x)\<guillemotright>"
-apply (subst maybemap_beta)
-apply (rule type_rule cont_rule)+
-apply (simp add: case_Maybe type_rule cont_rule)
+by (simp add: maybemap_beta case_Maybe)
+
+definition B_type :: "B \<Rightarrow> T list \<Rightarrow> T \<Rightarrow> bool"
+  where "B_type b ts u \<longleftrightarrow> (\<forall>xs. have_types xs ts \<longrightarrow> B_rep\<cdot>b\<cdot>xs ::: u)"
+
+lemma B_type_branch0: "y ::: u \<Longrightarrow> B_type (branch0 y) [] u"
+unfolding B_type_def
+apply (clarify elim!: have_types_elims)
+apply (simp add: B_rep_branch0)
+done
+
+lemma B_type_branchV:
+  assumes "cont (\<lambda>x. b x)"
+  assumes "\<And>x. x ::: t \<Longrightarrow> B_type (b x) ts u"
+  shows "B_type (branchV t (\<lambda>x. b x)) (t # ts) u"
+using assms unfolding B_type_def
+apply (clarify elim!: have_types_elims)
+apply (simp add: B_rep_branchV)
+done
+
+definition M_type :: "M \<Rightarrow> T \<Rightarrow> T \<Rightarrow> bool"
+  where "M_type m t u \<longleftrightarrow> (\<forall>x. x ::: t \<longrightarrow> sfun_rep\<cdot>(M_rep\<cdot>m)\<cdot>x ::: u)"
+
+lemma has_type_cases:
+  assumes x: "x ::: t"
+  assumes m: "\<And>w. w ::: t \<Longrightarrow> M_type (m w) t u"
+  shows "cases u x (\<lambda>w. m w) ::: u"
+using assms unfolding cases_def M_type_def by simp
+
+lemma M_type_allmatch:
+  assumes "x ::: u"
+  shows "M_type (allmatch x) t u"
+using assms unfolding M_type_def allmatch_def
+by (simp add: M.abs_iso strictify_conv_if has_type_bottom)
+
+lemma M_type_endmatch:
+  shows "M_type endmatch' t u"
+unfolding endmatch'_def
+by (intro M_type_allmatch has_type_bottom)
+
+lemma M_type_match_Nothing:
+  assumes b: "B_type b [] u"
+  assumes m: "M_type m \<langle>Maybe a\<rangle> u"
+  shows "M_type (match ''Nothing'' b m) \<langle>Maybe a\<rangle> u"
+using assms unfolding M_type_def B_type_def
+apply clarify
+apply (drule spec, drule (1) mp)
+apply (simp add: match_def M.abs_iso strictify_cancel)
+apply (erule Maybe_cases)
+apply (simp add: has_type_bottom)
+apply (simp add: Nothing_eq_Vcon)
+apply (simp add: Just_eq_Vcon)
+done
+
+lemma M_type_match_Just:
+  assumes b: "B_type b [a] u"
+  assumes m: "M_type m \<langle>Maybe a\<rangle> u"
+  shows "M_type (match ''Just'' b m) \<langle>Maybe a\<rangle> u"
+using assms unfolding M_type_def B_type_def
+apply clarify
+apply (drule spec, drule (1) mp)
+apply (simp add: match_def M.abs_iso strictify_cancel)
+apply (erule Maybe_cases)
+apply (simp add: has_type_bottom)
+apply (simp add: Nothing_eq_Vcon)
+apply (simp add: Just_eq_Vcon)
 done
 
 lemma has_type_maybemap [type_rule]:
   "maybemap ::: \<langle>forall aadk badl. (aadk \<rightarrow> badl) \<rightarrow> Maybe aadk \<rightarrow> Maybe badl\<rangle>"
 unfolding maybemap_def
-apply (rule type_rule cont_rule)+
-(* TODO: make some generic typing rules for cases *)
-apply (erule Maybe_cases)
-apply (simp add: cases_bottom has_type_bottom)
-apply (simp add: case_Maybe)
-apply (intro type_rule cont_rule)
-apply (simp add: case_Maybe cont_rule type_rule)
-apply (rule type_rule cont_rule | assumption)+
-done
+by (rule has_type_T_lam has_type_V_lam cont2cont has_type_cases M_type_match_Nothing B_type_branch0 has_type_T_app type_rule M_type_match_Just B_type_branchV has_type_V_app M_type_endmatch | assumption)+
 
 lemma ident_type: "\<guillemotleft>ident @a\<guillemotright> ::: \<langle>a \<rightarrow> a\<rangle>"
-by (rule type_rule cont_rule)+
+by typecheck
 
 lemma maybemap_ident:
   "\<guillemotleft>maybemap @a @a (ident @a)\<guillemotright> = \<guillemotleft>ident @(Maybe a)\<guillemotright>"
 apply (rule V_ext)
-apply (rule type_rule cont_rule)+
-apply (simp add: maybemap_def T_beta V_beta cont_rule ident_type)
-apply (rule V_lam_defined)
-apply (simp add: ident_def T_beta cont_rule V_lam_defined)
+apply typecheck
+apply typecheck
+apply (simp add: maybemap_def T_beta V_beta V_lam_defined)
+apply (simp add: ident_def T_beta V_lam_defined)
 apply (erule Maybe_cases)
-apply (simp add: maybemap_bottom ident_type ident has_type_bottom)
-apply (simp add: maybemap_Nothing ident_type)
-apply (rule ident [symmetric])
-apply (intro type_rule cont_rule)
-apply (simp add: maybemap_Just ident_type)
-apply (simp add: ident)
-apply (rule ident [symmetric])
-apply (rule type_rule cont_rule | assumption)+
+apply (simp add: maybemap_bottom ident has_type_bottom)
+apply (simp add: maybemap_Nothing ident)
+apply (simp add: maybemap_Just ident)
 done
 
 lemma maybemap_maybemap:
@@ -290,18 +325,9 @@ lemma maybemap_maybemap:
   shows "\<guillemotleft>maybemap @b @c g (maybemap @a @b f m)\<guillemotright> =
     \<guillemotleft>maybemap @a @c (\<lambda>(x::a). g (f x)) m\<guillemotright>"
 apply (rule Maybe_cases [OF assms(1)])
-apply (simp add: maybemap_bottom type_rule)
-apply (rule maybemap_bottom)
-apply (rule type_rule cont_rule | assumption)+
-apply (simp add: maybemap_Nothing type_rule)
-apply (rule maybemap_Nothing [symmetric])
-apply (rule type_rule cont_rule | assumption)+
-apply (simp add: maybemap_Just type_rule)
-apply (subst maybemap_Just)
-apply (rule type_rule | assumption)+
-apply (subst maybemap_Just)
-apply (rule type_rule cont_rule | assumption)+
-apply (simp add: V_beta cont_rule)
+apply (simp add: maybemap_bottom)
+apply (simp add: maybemap_Nothing)
+apply (simp add: maybemap_Just V_beta)
 done
 
 end
