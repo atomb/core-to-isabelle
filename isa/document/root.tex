@@ -1,0 +1,37 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage{graphicx,isabelle,isabellesym,latexsym}
+\usepackage[english]{babel} % for guillemot symbols
+\usepackage[only,bigsqcap]{stmaryrd}
+\usepackage{textcomp}
+\usepackage{pdfsetup}
+
+\urlstyle{rm}
+\isabellestyle{it}
+\pagestyle{myheadings}
+\newcommand{\isasymnotsqsubseteq}{\isamath{\not\sqsubseteq}}
+
+\begin{document}
+
+\title{Halicore}
+\maketitle
+
+\abstract{Halicore is a tool for reasoning about GHC-Core\cite{GHC-Core} with Isabelle/HOLCF.}
+
+\tableofcontents
+
+\begin{center}
+  \includegraphics[scale=0.45]{session_graph}
+\end{center}
+
+\newpage
+
+\renewcommand{\isamarkupheader}[1]%
+{\section{\isabellecontext: #1}\markright{THEORY~``\isabellecontext''}}
+
+\parindent 0pt\parskip 0.5ex
+\input{session}
+
+\bibliographystyle{abbrv}
+\bibliography{root}
+
+\end{document}
