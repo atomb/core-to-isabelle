@@ -2,10 +2,47 @@ import Language.Core.Core
 import Language.Core.Parser
 import Language.Core.ParseGlue
 import System.Environment
+import Data.List ( intercalate )
 
-processModule :: Module -> IsaDefs
-processModule (Module _ _ vdefs) 
- = Defs [] (map valToTmDecl vdefs)
+processTdef :: Tdef -> String
+processTdef (Data (_, name) tbinds cdefs) =
+  name ++ " " ++
+  intercalate " " (map processTbind tbinds) ++
+  " = " ++ intercalate " | " (map processCdef cdefs)
+processTdef (Newtype {}) = error "newtype not yet implemented"
+  
+processTbind :: Tbind -> String
+processTbind (tvar, Klifted)       = tvar
+processTbind (tvar, k@(Karrow {})) = "(" ++ tvar ++ " :: " ++
+  "\"" ++ showKind k ++ "\"" ++ ")"
+  where
+  showKind :: Kind -> String
+  showKind Klifted        = "\\<star>"
+  showKind Kunlifted      = error "unlifted kinds not supported" -- " # "
+  showKind Kopen          = error "open kinds not supported"     -- " ? "
+  showKind (Karrow k1 k2) = showKind k1 ++ " \\<rightarrow> " ++ showKind k2
+  showKind (Keq _ _)      = error "equality kinds not supported"
+
+processCdef :: Cdef -> String
+processCdef (Constr (_, name) [] [])  = name
+processCdef (Constr (_, name) [] tys) = name ++ " " ++
+  intercalate " " (map (quote.showTy) tys)
+  where
+  showTy :: Ty -> String
+  showTy (Tvar v)      = v
+  showTy (Tapp t1 t2)  = "(" ++ showTy t1 ++ " " ++ showTy t2 ++ ")"
+  showTy (Tcon (_, t)) = t
+  showTy t             = error $ "Ty not full implemented: " ++ show t
+  quote :: String -> String
+  quote s = "\"" ++ s ++ "\""
+
+--processModule :: Module -> IsaDefs
+processModule :: Module -> String
+processModule (Module _ tdefs _) = 
+  header ++ "\n" ++ "halicore_data\n  " ++
+  intercalate "\nand\n  " (map processTdef tdefs) ++ "\nend"
+--processModule (Module _ _ vdefs)
+-- = Defs [] (map valToTmDecl vdefs)
 
 data IsaDefs = Defs [TyDecl] [TmDecl]
 
@@ -17,10 +54,19 @@ data ITy = ITyvar IId
 
 header :: String
 header = unlines ["theory IsaCore",
-                  "imports Shallow HOLCF begin"]
+                  "imports Halicore\nbegin"]
 
 embedTy :: Ty -> String
-embedTy (Tvar v) = v
+embedTy (Tvar v)            = v
+embedTy (Tcon (_, v))       = v -- FIXME: Do not drop the qualifier
+embedTy (Tapp t1 t2)        = embedTy t1 ++ " \\<cdot> " ++ embedTy t2
+embedTy (Tforall        {}) = error "embedTy Tforall"
+embedTy (TransCoercion  {}) = error "embedTy TransCoercion"
+embedTy (SymCoercion    {}) = error "embedTy SymCoercion"
+embedTy (UnsafeCoercion {}) = error "UnsafeCoercion"
+embedTy (InstCoercion   {}) = error "InstCoercion"
+embedTy (LeftCoercion   {}) = error "LeftCoercion"
+embedTy (RightCoercion  {}) = error "RightCoercion"
 
 embed :: Term -> String
 embed (VInt i) = "VInt (Def "++(show i)++")"
@@ -74,4 +120,5 @@ main = do
   c   <- readFile f
   case parse c 0 of
     FailP s -> putStrLn $ "Failed: " ++ s
-    OkP m   -> putStrLn $ header ++ "\n" ++ (embedM $ processModule m)
+    OkP m   -> putStrLn $ processModule m
+    --OkP m   -> putStrLn $ header ++ "\n" ++ (embedM $ processModule m)
