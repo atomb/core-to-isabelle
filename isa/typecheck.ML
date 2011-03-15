@@ -7,6 +7,10 @@ sig
   val add_type_rule : attribute
   val del_type_rule : attribute
 
+  val get_con_rules : Proof.context -> thm list
+  val add_con_rule : attribute
+  val del_con_rule : attribute
+
   val dest_Abs : term -> term * term
 
   val typecheck_thm : Proof.context -> thm list -> term -> thm
@@ -20,6 +24,10 @@ struct
 
 fun dest_has_type (Const (@{const_name has_type}, _) $ x $ t) = (x, t)
   | dest_has_type t = raise TERM ("dest_has_type", [t])
+
+fun dest_has_constructor
+      (Const (@{const_name has_constructor}, _) $ t $ s $ ts) = (t, s, ts)
+  | dest_has_constructor t = raise TERM ("dest_has_constructor", [t])
 
 structure Type_Rule_Data = Generic_Data
 (
@@ -38,6 +46,24 @@ val add_type_rule =
 
 val del_type_rule =
   Thm.declaration_attribute (Type_Rule_Data.map o Item_Net.remove)
+
+structure Con_Rule_Data = Generic_Data
+(
+  type T = thm Item_Net.T
+  val empty = Item_Net.init Thm.eq_thm_prop
+        (single o #1 o dest_has_constructor o HOLogic.dest_Trueprop o concl_of)
+  val extend = I
+  val merge = Item_Net.merge
+)
+
+val get_con_rules =
+  Item_Net.content o Con_Rule_Data.get o Context.Proof
+
+val add_con_rule =
+  Thm.declaration_attribute (Con_Rule_Data.map o Item_Net.update)
+
+val del_con_rule =
+  Thm.declaration_attribute (Con_Rule_Data.map o Item_Net.remove)
 
 (* Transforms theorem "cont f ==> P" into "P" *)
 fun solve_cont_prem thm =
@@ -69,6 +95,7 @@ fun typecheck_thm ctxt rules : term -> thm =
     val thy = ProofContext.theory_of ctxt
     val cert = Thm.cterm_of thy
     val certT = Thm.ctyp_of thy
+    (* builds theorem for value of type V *)
     fun check net e =
       case e of
         Const (@{const_name V_app}, _) $ e1 $ e2 =>
@@ -109,7 +136,34 @@ fun typecheck_thm ctxt rules : term -> thm =
           in
             solve_cont_prem (solve_cont_prem thm2)
           end
+      | Const (@{const_name cases}, _) $ u $ e $ f =>
+          let
+            val (w, m) = dest_Abs f
+            val thm0 = check net e
+            val (_, t) = dest_has_type (HOLogic.dest_Trueprop (concl_of thm0))
+            val cprop = cert (HOLogic.mk_Trueprop (@{const has_type} $ w $ t))
+            val net' = Item_Net.update (Thm.assume cprop) net
+            val thm1 = check_m net' m (cert t) (cert u)
+            val thm2 = Thm.implies_intr cprop thm1
+            val thm3 = Thm.forall_intr (cert w) thm2
+            val thm4 = thm0 RS @{thm has_type_cases}
+            val thm5 = Drule.compose_single (thm3, 1, thm4)
+          in thm5 end
       | e => hd (Item_Net.retrieve net e)
+    (* builds theorem for value of type M *)
+    and check_m net m t u =
+      case m of
+        Const (@{const_name endmatch'}, _) =>
+          Drule.instantiate' [] [SOME t, SOME u] @{thm M_type_endmatch}
+      | Const (@{const_name allmatch}, _) $ e =>
+          let
+            val thm0 = check net e
+            val thm1 = Drule.instantiate' [] [NONE, SOME u, SOME t]
+                       @{thm M_type_allmatch}
+          in
+            thm0 RS thm1
+          end
+      | t => raise TERM ("check_m", [t])
   in
     check net1
   end

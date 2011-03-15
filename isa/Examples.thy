@@ -127,6 +127,16 @@ apply (simp cong: V_lam_cong add: right_unit)
 apply (simp add: ident_def T_beta)
 done
 
+subsection {* Polymorphic seq function *}
+
+text {* This example demonstrates the typecheck tactic on a
+wildcard-only case expression. *}
+
+definition seq where
+  "seq = \<guillemotleft>\<lambda>@a @b (x::a) (y::b). case (b) x of w {_ \<rightarrow> y}\<guillemotright>"
+
+lemma seq_type: "seq ::: \<langle>forall a b. a \<rightarrow> b \<rightarrow> b\<rangle>"
+unfolding seq_def by typecheck
 
 
 subsection "Maybe datatype"
