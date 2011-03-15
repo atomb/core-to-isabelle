@@ -1,3 +1,5 @@
+header {* Definitions of combinators and typing relations *}
+
 theory Halicore_Defs
 imports
   HOLCF

@@ -1,13 +1,17 @@
+header {* Definition packages for Halicore datatypes and functions *}
+
 theory Halicore_Commands
 imports Halicore_Syntax
 begin
 
-(*
-Right now, the "halicore_data" command parses its input, but doesn't
-do anything with it. Eventually, it will internally call "fixrec" to
-actually define a datatype, "definition" to define constructor
-functions, etc.
-*)
+subsection {* Defining datatypes *}
+
+text {*
+Right now, the @{text halicore_data} command parses its input, but
+doesn't do anything with it. Eventually, it will internally call
+@{text fixrec} to actually define a datatype, @{text definition} to
+define constructor functions, etc.
+*}
 
 ML {*
 

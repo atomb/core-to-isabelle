@@ -1,3 +1,5 @@
+header {* Parsing and pretty-printing for Halicore terms and types *}
+
 theory Halicore_Syntax
 imports Halicore_Defs
 begin
