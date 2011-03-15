@@ -233,79 +233,36 @@ lemma maybemap_Just:
   shows "\<guillemotleft>maybemap @a @b f (Just @a x)\<guillemotright> = \<guillemotleft>Just @b (f x)\<guillemotright>"
 by (simp add: maybemap_beta case_Maybe)
 
-definition B_type :: "B \<Rightarrow> T list \<Rightarrow> T \<Rightarrow> bool"
-  where "B_type b ts u \<longleftrightarrow> (\<forall>xs. have_types xs ts \<longrightarrow> B_rep\<cdot>b\<cdot>xs ::: u)"
-
-lemma B_type_branch0: "y ::: u \<Longrightarrow> B_type (branch0 y) [] u"
-unfolding B_type_def
-apply (clarify elim!: have_types_elims)
-apply (simp add: B_rep_branch0)
+lemma has_constructor_Nothing:
+  shows "has_constructor \<langle>Maybe a\<rangle> ''Nothing'' []"
+apply (rule has_constructor_intro)
+apply (rule Maybe_unfold)
+apply simp
 done
 
-lemma B_type_branchV:
-  assumes "cont (\<lambda>x. b x)"
-  assumes "\<And>x. x ::: t \<Longrightarrow> B_type (b x) ts u"
-  shows "B_type (branchV t (\<lambda>x. b x)) (t # ts) u"
-using assms unfolding B_type_def
-apply (clarify elim!: have_types_elims)
-apply (simp add: B_rep_branchV)
+lemma has_constructor_Just:
+  shows "has_constructor \<langle>Maybe a\<rangle> ''Just'' [a]"
+apply (rule has_constructor_intro)
+apply (rule Maybe_unfold)
+apply simp
 done
 
-definition M_type :: "M \<Rightarrow> T \<Rightarrow> T \<Rightarrow> bool"
-  where "M_type m t u \<longleftrightarrow> (\<forall>x. x ::: t \<longrightarrow> sfun_rep\<cdot>(M_rep\<cdot>m)\<cdot>x ::: u)"
-
-lemma has_type_cases:
-  assumes x: "x ::: t"
-  assumes m: "\<And>w. w ::: t \<Longrightarrow> M_type (m w) t u"
-  shows "cases u x (\<lambda>w. m w) ::: u"
-using assms unfolding cases_def M_type_def by simp
-
-lemma M_type_allmatch:
-  assumes "x ::: u"
-  shows "M_type (allmatch x) t u"
-using assms unfolding M_type_def allmatch_def
-by (simp add: M.abs_iso strictify_conv_if has_type_bottom)
-
-lemma M_type_endmatch:
-  shows "M_type endmatch' t u"
-unfolding endmatch'_def
-by (intro M_type_allmatch has_type_bottom)
-
-lemma M_type_match_Nothing:
-  assumes b: "B_type b [] u"
-  assumes m: "M_type m \<langle>Maybe a\<rangle> u"
-  shows "M_type (match ''Nothing'' b m) \<langle>Maybe a\<rangle> u"
-using assms unfolding M_type_def B_type_def
-apply clarify
-apply (drule spec, drule (1) mp)
-apply (simp add: match_def M.abs_iso strictify_cancel)
-apply (erule Maybe_cases)
-apply (simp add: has_type_bottom)
-apply (simp add: Nothing_eq_Vcon)
-apply (simp add: Just_eq_Vcon)
-done
-
-lemma M_type_match_Just:
-  assumes b: "B_type b [a] u"
-  assumes m: "M_type m \<langle>Maybe a\<rangle> u"
-  shows "M_type (match ''Just'' b m) \<langle>Maybe a\<rangle> u"
-using assms unfolding M_type_def B_type_def
-apply clarify
-apply (drule spec, drule (1) mp)
-apply (simp add: match_def M.abs_iso strictify_cancel)
-apply (erule Maybe_cases)
-apply (simp add: has_type_bottom)
-apply (simp add: Nothing_eq_Vcon)
-apply (simp add: Just_eq_Vcon)
-done
+lemmas type_check =
+  has_type_V_app
+  has_type_T_app
+  has_type_V_lam
+  has_type_T_lam
+  has_type_cases
+  M_type_endmatch
+  M_type_allmatch
+  M_type_match
+  B_type_branch0
+  B_type_branchV
 
 lemma has_type_maybemap [type_rule]:
   "maybemap ::: \<langle>forall aadk badl. (aadk \<rightarrow> badl) \<rightarrow> Maybe aadk \<rightarrow> Maybe badl\<rangle>"
 unfolding maybemap_def
-by (rule has_type_T_lam has_type_V_lam cont2cont has_type_cases M_type_match_Nothing B_type_branch0 has_type_T_app type_rule M_type_match_Just B_type_branchV has_type_V_app M_type_endmatch | assumption)+
-
-lemma ident_type: "\<guillemotleft>ident @a\<guillemotright> ::: \<langle>a \<rightarrow> a\<rangle>"
-by typecheck
+by (rule type_check cont2cont type_rule has_constructor_Nothing has_constructor_Just | assumption)+
 
 lemma maybemap_ident:
   "\<guillemotleft>maybemap @a @a (ident @a)\<guillemotright> = \<guillemotleft>ident @(Maybe a)\<guillemotright>"

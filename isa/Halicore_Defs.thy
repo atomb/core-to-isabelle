@@ -402,9 +402,16 @@ by simp
 
 subsection {* Case expressions *}
 
-text "Case branches"
+subsubsection {* Single case branches *}
+
+text {* In a case expression like @{text "case t of Node l r \<rightarrow> e"}, a
+value of type @{text B} represents the part @{text "l r \<rightarrow> e"}. It
+binds a list of variables, and returns the right-hand side. *}
 
 domain_isomorphism B = "V list \<rightarrow> V"
+
+definition B_type :: "B \<Rightarrow> T list \<Rightarrow> T \<Rightarrow> bool"
+  where "B_type b ts u \<longleftrightarrow> (\<forall>xs. have_types xs ts \<longrightarrow> B_rep\<cdot>b\<cdot>xs ::: u)"
 
 definition branch0 :: "V \<Rightarrow> B"
   where "branch0 v = B_abs\<cdot>(\<Lambda> xs. case xs of [] \<Rightarrow> v | y # ys \<Rightarrow> Wrong)"
@@ -412,6 +419,8 @@ definition branch0 :: "V \<Rightarrow> B"
 definition branchV :: "T \<Rightarrow> (V \<Rightarrow> B) \<Rightarrow> B"
   where "branchV t f = B_abs\<cdot>(\<Lambda> xs. case xs of [] \<Rightarrow> Wrong |
     y # ys \<Rightarrow> B_rep\<cdot>(f (cast\<cdot>(T_rep\<cdot>t)\<cdot>y))\<cdot>ys)"
+
+text {* Both branch combinators satisfy rewrite rules. *}
 
 lemma B_rep_branch0: "B_rep\<cdot>(branch0 v)\<cdot>[] = v"
 by (simp add: branch0_def B.abs_iso)
@@ -421,6 +430,8 @@ lemma B_rep_branchV:
   shows "B_rep\<cdot>(branchV t f)\<cdot>(x # xs) = B_rep\<cdot>(f x)\<cdot>xs"
 unfolding branchV_def B.abs_iso
 by (simp add: cont_compose [OF f] x [unfolded has_type_def])
+
+text {* Both branch combinators are continuous. *}
 
 theorem cont_branch0 [simp, cont2cont]:
   assumes "cont f" shows "cont (\<lambda>x. branch0 (f x))"
@@ -440,16 +451,44 @@ proof -
     done
 qed
 
-text "Lists of case branches"
+text {* Both branch combinators obey typing rules. *}
+
+lemma B_type_branch0: "y ::: u \<Longrightarrow> B_type (branch0 y) [] u"
+unfolding B_type_def
+apply (clarify elim!: have_types_elims)
+apply (simp add: B_rep_branch0)
+done
+
+lemma B_type_branchV:
+  assumes "cont (\<lambda>x. b x)"
+  assumes "\<And>x. x ::: t \<Longrightarrow> B_type (b x) ts u"
+  shows "B_type (branchV t (\<lambda>x. b x)) (t # ts) u"
+using assms unfolding B_type_def
+apply (clarify elim!: have_types_elims)
+apply (simp add: B_rep_branchV)
+done
+
+subsubsection {* Blocks of case branches *}
+
+text {* In a case expression like @{text "case m of {Just x \<rightarrow> a;
+Nothing \<rightarrow> b}"}, a value of type @{text M} represents the part @{text
+"{Just x \<rightarrow> a; Nothing \<rightarrow> b}"}. Type @{text M} is modeled using a strict
+function space because case expressions in GHC-Core are always strict.
+The argument type is @{typ V} rather than @{typ "string \<times> V list"}
+because case expressions can also force evaluation of non-datatypes,
+such as functions. *}
 
 domain_isomorphism M = "V \<rightarrow>! V"
 
+definition M_type :: "M \<Rightarrow> T \<Rightarrow> T \<Rightarrow> bool"
+  where "M_type m t u \<longleftrightarrow> (\<forall>x. x ::: t \<longrightarrow> sfun_rep\<cdot>(M_rep\<cdot>m)\<cdot>x ::: u)"
+
+definition has_constructor :: "T \<Rightarrow> string \<Rightarrow> T list \<Rightarrow> bool"
+  where "has_constructor t s ts \<longleftrightarrow>
+    (\<exists>ds. t = datatype ds \<and> lookup_defls\<cdot>ds\<cdot>s = defls\<cdot>ts)"
+
 definition allmatch :: "V \<Rightarrow> M"
   where "allmatch v = M_abs\<cdot>(sfun_abs\<cdot>(\<Lambda> x. v))"
-
-lemma cont_allmatch [simp, cont2cont]:
-  assumes "cont f" shows "cont (\<lambda>x. allmatch (f x))"
-unfolding allmatch_def by (simp add: cont_compose [OF assms])
 
 definition endmatch :: "M"
   where "endmatch = allmatch Wrong"
@@ -464,16 +503,63 @@ definition match :: "string \<Rightarrow> B \<Rightarrow> M \<Rightarrow> M"
     Vcon\<cdot>s'\<cdot>xs \<Rightarrow> if s = s' then B_rep\<cdot>b\<cdot>xs else sfun_rep\<cdot>(M_rep\<cdot>m)\<cdot>x |
     Vfun\<cdot>f \<Rightarrow> Wrong | Vtfun\<cdot>f \<Rightarrow> Wrong | Wrong \<Rightarrow> Wrong))"
 
+text {* All match combinators are continuous. *}
+
+lemma cont_allmatch [simp, cont2cont]:
+  assumes "cont f" shows "cont (\<lambda>x. allmatch (f x))"
+unfolding allmatch_def by (simp add: cont_compose [OF assms])
+
 lemma cont_match [simp, cont2cont]:
   assumes "cont b" and "cont m"
   shows "cont (\<lambda>x. match s (b x) (m x))"
 unfolding match_def
 by (intro cont2cont assms [THEN cont_compose])
 
-text "Case expressions"
+text {* All match combinators obey typing rules *}
+
+lemma has_constructor_intro:
+  "\<lbrakk>t = datatype ds; lookup_defls\<cdot>ds\<cdot>s = defls\<cdot>ts\<rbrakk> \<Longrightarrow> has_constructor t s ts"
+unfolding has_constructor_def by auto
+
+lemma M_type_match:
+  assumes 1: "has_constructor t s ts"
+  assumes 2: "B_type b ts u"
+  assumes 3: "M_type m t u"
+  shows "M_type (match s b m) t u"
+using assms
+apply -
+apply (clarsimp simp add: M_type_def)
+apply (drule spec, drule (1) mp)
+apply (simp add: match_def M.abs_iso strictify_cancel)
+apply (clarsimp simp add: has_constructor_def)
+apply (simp only: has_type_def)
+apply (simp only: has_type_def [where t=u, symmetric])
+apply (simp add: cast_datatype)
+apply (case_tac x, simp_all)
+apply clarsimp
+apply (simp add: B_type_def)
+apply (drule spec, erule mp)
+apply (case_tac "cast\<cdot>(defls\<cdot>ts)\<cdot>(up\<cdot>list2)", simp_all)
+apply (simp add: have_types_iff)
+done
+
+lemma M_type_allmatch:
+  assumes "x ::: u"
+  shows "M_type (allmatch x) t u"
+using assms unfolding M_type_def allmatch_def
+by (simp add: M.abs_iso strictify_conv_if has_type_bottom)
+
+lemma M_type_endmatch:
+  shows "M_type endmatch' t u"
+unfolding endmatch'_def
+by (intro M_type_allmatch has_type_bottom)
+
+subsubsection {* Full case expressions *}
 
 definition cases :: "T \<Rightarrow> V \<Rightarrow> (V \<Rightarrow> M) \<Rightarrow> V"
   where "cases t v m = sfun_rep\<cdot>(M_rep\<cdot>(m v))\<cdot>v"
+
+text {* The case expression combinator is continuous. *}
 
 lemma cont_cases [simp, cont2cont]:
   assumes "cont v" and "cont (\<lambda>p. m (fst p) (snd p))"
@@ -487,6 +573,16 @@ proof -
     apply (simp_all add: cont_compose [OF 1] cont_compose [OF 2])
     done
 qed
+
+text {* The case expression combinator obeys a typing rule. *}
+
+lemma has_type_cases:
+  assumes x: "x ::: t"
+  assumes m: "\<And>w. w ::: t \<Longrightarrow> M_type (m w) t u"
+  shows "cases u x (\<lambda>w. m w) ::: u"
+using assms unfolding cases_def M_type_def by simp
+
+text {* Case expressions satisfy some basic rewrite rules. *}
 
 theorem cases_allmatch:
   assumes f: "cont f" and x: "x \<noteq> \<bottom>"
