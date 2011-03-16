@@ -243,36 +243,24 @@ lemma maybemap_Just:
   shows "\<guillemotleft>maybemap @a @b f (Just @a x)\<guillemotright> = \<guillemotleft>Just @b (f x)\<guillemotright>"
 by (simp add: maybemap_beta case_Maybe)
 
-lemma has_constructor_Nothing:
+lemma has_constructor_Nothing [constructor_rule]:
   shows "has_constructor \<langle>Maybe a\<rangle> ''Nothing'' []"
 apply (rule has_constructor_intro)
 apply (rule Maybe_unfold)
 apply simp
 done
 
-lemma has_constructor_Just:
+lemma has_constructor_Just [constructor_rule]:
   shows "has_constructor \<langle>Maybe a\<rangle> ''Just'' [a]"
 apply (rule has_constructor_intro)
 apply (rule Maybe_unfold)
 apply simp
 done
 
-lemmas type_check =
-  has_type_V_app
-  has_type_T_app
-  has_type_V_lam
-  has_type_T_lam
-  has_type_cases
-  M_type_endmatch
-  M_type_allmatch
-  M_type_match
-  B_type_branch0
-  B_type_branchV
-
 lemma has_type_maybemap [type_rule]:
   "maybemap ::: \<langle>forall aadk badl. (aadk \<rightarrow> badl) \<rightarrow> Maybe aadk \<rightarrow> Maybe badl\<rangle>"
 unfolding maybemap_def
-by (rule type_check cont2cont type_rule has_constructor_Nothing has_constructor_Just | assumption)+
+by typecheck
 
 lemma maybemap_ident:
   "\<guillemotleft>maybemap @a @a (ident @a)\<guillemotright> = \<guillemotleft>ident @(Maybe a)\<guillemotright>"

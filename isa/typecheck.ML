@@ -51,7 +51,7 @@ structure Con_Rule_Data = Generic_Data
 (
   type T = thm Item_Net.T
   val empty = Item_Net.init Thm.eq_thm_prop
-        (single o #1 o dest_has_constructor o HOLogic.dest_Trueprop o concl_of)
+        (single o #2 o dest_has_constructor o HOLogic.dest_Trueprop o concl_of)
   val extend = I
   val merge = Item_Net.merge
 )
@@ -72,6 +72,7 @@ fun solve_cont_prem thm =
     val tac = SOLVED' (REPEAT_ALL_NEW (resolve_tac rules)) 1
   in
     the (SINGLE tac thm)
+    (* TODO: better error message than "exception Option" if this fails *)
   end
 
 fun dest_Abs (Abs (x, T, t)) =
@@ -90,6 +91,7 @@ fun dest_Abs (Abs (x, T, t)) =
 
 fun typecheck_thm ctxt rules : term -> thm =
   let
+    val con_rules = Con_Rule_Data.get (Context.Proof ctxt)
     val net0 = Type_Rule_Data.get (Context.Proof ctxt)
     val net1 = fold Item_Net.update rules net0
     val thy = ProofContext.theory_of ctxt
@@ -150,6 +152,7 @@ fun typecheck_thm ctxt rules : term -> thm =
             val thm5 = Drule.compose_single (thm3, 1, thm4)
           in thm5 end
       | e => hd (Item_Net.retrieve net e)
+        (* TODO: better error message than exception Empty if this fails *)
     (* builds theorem for value of type M *)
     and check_m net m t u =
       case m of
@@ -158,12 +161,41 @@ fun typecheck_thm ctxt rules : term -> thm =
       | Const (@{const_name allmatch}, _) $ e =>
           let
             val thm0 = check net e
-            val thm1 = Drule.instantiate' [] [NONE, SOME u, SOME t]
-                       @{thm M_type_allmatch}
+            val insts = [NONE, SOME u, SOME t]
+            val thm1 = Drule.instantiate' [] insts @{thm M_type_allmatch}
           in
             thm0 RS thm1
           end
-      | t => raise TERM ("check_m", [t])
+      | Const (@{const_name match}, _) $ s $ b $ m =>
+          let
+            val insts = [SOME t, NONE, NONE, NONE, SOME u]
+            val rule = Drule.instantiate' [] insts @{thm M_type_match}
+            val thm1 = hd (Item_Net.retrieve con_rules s)
+            (* TODO: better error message if this fails *)
+            val thm2 = check_b net b
+            val thm3 = check_m net m t u
+          in
+            rule OF [thm1, thm2, thm3]
+          end
+      | m => raise TERM ("check_m", [m])
+    (* builds theorem for value of type B *)
+    and check_b net b =
+      case b of
+        Const (@{const_name branch0}, _) $ e =>
+          (check net e) RS @{thm B_type_branch0}
+      | Const (@{const_name branchV}, _) $ t $ f =>
+          let
+            val (x, b) = dest_Abs f
+            val cprop = cert (HOLogic.mk_Trueprop (@{const has_type} $ x $ t))
+            val net' = Item_Net.update (Thm.assume cprop) net
+            val thm1 = check_b net' b
+            val thm2 = Thm.implies_intr cprop thm1
+            val thm3 = Thm.forall_intr (cert x) thm2
+            val thm4 = Drule.compose_single (thm3, 2, @{thm B_type_branchV})
+          in
+            solve_cont_prem thm4
+          end
+      | b => raise TERM ("check_b", [b])
   in
     check net1
   end
@@ -209,5 +241,13 @@ val setup =
   #>
   Global_Theory.add_thms_dynamic
     (Binding.name "type_rule", Item_Net.content o Type_Rule_Data.get)
+  #>
+  Attrib.setup
+    (Binding.name "constructor_rule")
+    (Attrib.add_del add_con_rule del_con_rule)
+    "declaration of data constructor (Halicore)"
+  #>
+  Global_Theory.add_thms_dynamic
+    (Binding.name "constructor_rule", Item_Net.content o Con_Rule_Data.get)
 
 end
