@@ -2,6 +2,7 @@ header {* Definition packages for Halicore datatypes and functions *}
 
 theory Halicore_Commands
 imports Halicore_Syntax
+uses ("datatype.ML")
 begin
 
 subsection {* Defining datatypes *}
@@ -13,33 +14,7 @@ doesn't do anything with it. Eventually, it will internally call
 define constructor functions, etc.
 *}
 
-ML {*
-
-val parse_tbind : (string * string option) parser =
-  (Parse.short_ident >> rpair NONE) ||
-  (Parse.$$$ "(" |-- Parse.short_ident --| Parse.$$$ "::" --
-    (Parse.typ >> SOME) --| Parse.$$$ ")")
-
-val parse_halicore_data_decl :
-    ((binding * (string * string option) list) *
-     (binding * string list) list) list parser =
-  Parse.and_list
-    (Parse.binding -- Scan.repeat parse_tbind --
-      (Parse.$$$ "=" |-- Parse.enum1 "|"
-        (Parse.binding -- Scan.repeat Parse.term)))
-*}
-
-ML {*
-
-val _ =
-  Outer_Syntax.command
-    "halicore_data"
-    "define datatypes (Halicore)"
-    Keyword.thy_decl
-    (parse_halicore_data_decl >> K (Toplevel.theory I))
-
-*}
-
+use "datatype.ML"
 
 (*
 Usage examples:
