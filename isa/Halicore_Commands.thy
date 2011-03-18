@@ -8,10 +8,8 @@ begin
 subsection {* Defining datatypes *}
 
 text {*
-Right now, the @{text halicore_data} command parses its input, but
-doesn't do anything with it. Eventually, it will internally call
-@{text fixrec} to actually define a datatype, @{text definition} to
-define constructor functions, etc.
+Right now, the @{text halicore_data} command parses its input, and
+defines datatypes, but it doesn't define constructor functions yet.
 *}
 
 use "datatype.ML"
