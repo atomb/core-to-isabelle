@@ -78,9 +78,19 @@ fun gen_add_halicore_data
       end
     val tycon_rhss = map2 mk_datatype targss rhss
 
-    (* Define datatype constants *)
+    (* Prove continuity of datatype functional *)
     val functional =
       HOLCF_Library.lambda_tuple tycons (HOLCF_Library.mk_tuple tycon_rhss)
+    val cont_thm =
+      let
+        val prop = HOLogic.mk_Trueprop (HOLCF_Library.mk_cont functional)
+        val rules = Cont2ContData.get lthy
+        val tac = REPEAT_ALL_NEW (match_tac rules) 1
+      in
+        Goal.prove lthy [] [] prop (K tac)
+      end
+
+    (* Define datatype constants *)
     val fixpoint =
       HOLCF_Library.mk_fix (HOLCF_Library.mk_cabs functional)
     fun one_def tbind rhs =
@@ -92,6 +102,24 @@ fun gen_add_halicore_data
             defs bs (HOLCF_Library.mk_snd t)
     val (fixdef_thms : (term * (string * thm)) list, lthy) = lthy
       |> fold_map Local_Theory.define (defs tbinds fixpoint)
+
+    (* Generate datatype unfolding rules *)
+    fun pair_equalI (thm1, thm2) = @{thm Pair_equalI} OF [thm1, thm2]
+    val tuple_fixdef_thm = foldr1 pair_equalI (map (snd o snd) fixdef_thms)
+    val tuple_unfold_thm =
+      Local_Defs.unfold lthy @{thms split_conv}
+        (@{thm def_cont_fix_eq} OF [tuple_fixdef_thm, cont_thm])
+    fun unfolds [] thm = []
+      | unfolds (n::[]) thm = [(n, thm)]
+      | unfolds (n::ns) thm = let
+          val thmL = thm RS @{thm Pair_eqD1}
+          val thmR = thm RS @{thm Pair_eqD2}
+        in (n, thmL) :: unfolds ns thmR end
+    val unfold_thms = unfolds tbinds tuple_unfold_thm
+    fun unfold_note (tbind, thm) : Attrib.binding * Thm.thm list =
+      ((Binding.suffix_name "_unfold_raw" tbind, []), [thm])
+    val (thmss, lthy) = lthy
+      |> fold_map (Local_Theory.note o unfold_note) unfold_thms
 
     val info = ()
   in

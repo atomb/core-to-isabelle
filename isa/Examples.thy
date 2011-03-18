@@ -143,9 +143,12 @@ subsection "Maybe datatype"
 
 halicore_data Maybe a = Nothing | Just "a"
 
+lemma T_apply_eqI: "t = (\<Lambda> a. f a) \<Longrightarrow> cont f \<Longrightarrow> \<langle>t a\<rangle> = f a"
+unfolding T_apply_def by simp
+
 lemma Maybe_unfold:
   "\<langle>Maybe a\<rangle> = datatype [(''Nothing'', []), (''Just'', [a])]"
-by (simp add: Maybe_def fix_const T_apply_def)
+by (rule Maybe_unfold_raw [THEN T_apply_eqI], simp)
 
 definition "Nothing = \<guillemotleft>\<lambda>@(a::\<star>). \<lbrace>Vcon\<cdot>''Nothing''\<cdot>[]\<rbrace>\<guillemotright>"
 
