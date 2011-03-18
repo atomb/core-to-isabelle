@@ -31,7 +31,7 @@ definition
        bind @a @b xs (\<lambda>(x::a). return @b (f x))\<guillemotright>"
 
 lemma has_type_fmap [type_rule]:
-  "mk_fmap ::: \<langle>forall m. (forall a. a \<rightarrow> m a) \<rightarrow> (forall a b. m a \<rightarrow> (a \<rightarrow> m b) \<rightarrow> m b) \<rightarrow> (forall a b. (a \<rightarrow> b) \<rightarrow> m a \<rightarrow> m b)\<rangle>"
+  "mk_fmap ::: \<langle>forall (m::\<star> \<rightarrow> \<star>). (forall a. a \<rightarrow> m a) \<rightarrow> (forall a b. m a \<rightarrow> (a \<rightarrow> m b) \<rightarrow> m b) \<rightarrow> (forall a b. (a \<rightarrow> b) \<rightarrow> m a \<rightarrow> m b)\<rangle>"
 unfolding mk_fmap_def
 by typecheck
 
