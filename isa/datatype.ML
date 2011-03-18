@@ -44,20 +44,19 @@ fun gen_add_halicore_data
     (* declare type constructors in a local context *)
     fun fix_of tbind kind = (tbind, SOME kind, NoSyn)
     val fixes = map2 fix_of tbinds kinds
-    val (tycon_names, ctxt) = ProofContext.add_fixes fixes lthy
+    val (tycon_names, tycon_ctxt) = ProofContext.add_fixes fixes lthy
     val tycons = map Free (tycon_names ~~ kinds)
 
     (* Print some stuff for debugging *)
-    fun print_tycon t k = writeln
-      (Syntax.string_of_term ctxt t ^ " :: " ^ Syntax.string_of_typ ctxt k)
-    val _ = map2 print_tycon tycons kinds
+    fun print_tycon t k = writeln (t ^ " :: " ^ Syntax.string_of_typ lthy k)
+    val _ = map2 print_tycon tycon_names kinds
 
     (* Parse constructor types on right-hand sides *)    
     fun prep_rhs targs raw_rhs =
       let
         (* temporarily declare type arguments for parsing *)
         val targs_ctxt =
-          fold Variable.declare_constraints (map Free targs) ctxt
+          fold Variable.declare_constraints (map Free targs) tycon_ctxt
       in
         map (apsnd (map (prep_term targs_ctxt))) raw_rhs
       end
@@ -73,14 +72,26 @@ fun gen_add_halicore_data
             HOLogic.mk_prod (ctag, HOLogic.mk_list @{typ T} ts)
           end
         val body = @{const "datatype"} $
-          HOLogic.mk_list @{typ "string * T"} (map one_constr constrs)
+          HOLogic.mk_list @{typ "string * T list"} (map one_constr constrs)
       in
         HOLCF_Library.big_lambdas (map Free targs) body
       end
-    val datatypes = map2 mk_datatype targss rhss
- 
-    (* Print some stuff for debugging *)
-    val _ = map (writeln o Syntax.string_of_term ctxt) datatypes
+    val tycon_rhss = map2 mk_datatype targss rhss
+
+    (* Define datatype constants *)
+    val functional =
+      HOLCF_Library.lambda_tuple tycons (HOLCF_Library.mk_tuple tycon_rhss)
+    val fixpoint =
+      HOLCF_Library.mk_fix (HOLCF_Library.mk_cabs functional)
+    fun one_def tbind rhs =
+      ((tbind, NoSyn), ((Binding.suffix_name "_def" tbind, []), rhs))
+    fun defs [] _ = []
+      | defs (b::[]) t = [one_def b t]
+      | defs (b::bs) t =
+          one_def b (HOLCF_Library.mk_fst t) ::
+            defs bs (HOLCF_Library.mk_snd t)
+    val (fixdef_thms : (term * (string * thm)) list, lthy) = lthy
+      |> fold_map Local_Theory.define (defs tbinds fixpoint)
 
     val info = ()
   in

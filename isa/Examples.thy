@@ -141,14 +141,11 @@ unfolding seq_def by typecheck
 
 subsection "Maybe datatype"
 
-fixrec Maybe :: "\<star> \<rightarrow> \<star>" where [simp del]:
-  "Maybe\<cdot>a = datatype [(''Nothing'', []), (''Just'', [a])]"
-
-thm Maybe.simps [folded T_apply_def]
+halicore_data Maybe a = Nothing | Just "a"
 
 lemma Maybe_unfold:
   "\<langle>Maybe a\<rangle> = datatype [(''Nothing'', []), (''Just'', [a])]"
-unfolding T_apply_def by (rule Maybe.simps)
+by (simp add: Maybe_def fix_const T_apply_def)
 
 definition "Nothing = \<guillemotleft>\<lambda>@(a::\<star>). \<lbrace>Vcon\<cdot>''Nothing''\<cdot>[]\<rbrace>\<guillemotright>"
 
