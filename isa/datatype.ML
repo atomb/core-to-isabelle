@@ -30,24 +30,58 @@ fun gen_add_halicore_data
     (lthy : local_theory) : info * local_theory =
   let
     val (raw_lhss, raw_rhss) = ListPair.unzip raw_specs
+    val (tbinds, raw_targss) = ListPair.unzip raw_lhss
 
+    (* Parse kinds on left-hand sides *)
     fun prep_targ (a, k) =
       (a, the_default @{typ T} (Option.map (prep_typ lthy) k))
-    fun prep_lhs (tbind, targs) =
+    val targss = map (map prep_targ) raw_targss
+
+    (* compute kinds of new type constructors *)
+    fun kind_of targs = HOLCF_Library.-->> (map snd targs, @{typ T})
+    val kinds = map kind_of targss
+
+    (* declare type constructors in a local context *)
+    fun fix_of tbind kind = (tbind, SOME kind, NoSyn)
+    val fixes = map2 fix_of tbinds kinds
+    val (tycon_names, ctxt) = ProofContext.add_fixes fixes lthy
+    val tycons = map Free (tycon_names ~~ kinds)
+
+    (* Print some stuff for debugging *)
+    fun print_tycon t k = writeln
+      (Syntax.string_of_term ctxt t ^ " :: " ^ Syntax.string_of_typ ctxt k)
+    val _ = map2 print_tycon tycons kinds
+
+    (* Parse constructor types on right-hand sides *)    
+    fun prep_rhs targs raw_rhs =
       let
-        val targs' = map prep_targ targs
-        val kind = HOLCF_Library.-->> (map snd targs', @{typ T})
-        val _ = writeln (Binding.str_of tbind ^ " :: " ^ Syntax.string_of_typ lthy kind)
+        (* temporarily declare type arguments for parsing *)
+        val targs_ctxt =
+          fold Variable.declare_constraints (map Free targs) ctxt
       in
-        (tbind, kind, targs')
+        map (apsnd (map (prep_term targs_ctxt))) raw_rhs
       end
-    val lhss = map prep_lhs raw_lhss
+    val rhss : (binding * term list) list list = map2 prep_rhs targss raw_rhss
 
-    fun prep_constr (cbind, ts) = (cbind, map (prep_term lthy) ts)
-    fun prep_spec ((tbind, targs), constrs) =
-      ((tbind, map prep_targ targs), map prep_constr constrs)
+    (* Build recursive datatype equations *)
+    fun mk_datatype targs constrs =
+      let
+        fun one_constr (cbind, ts) =
+          let
+            val ctag = HOLogic.mk_string (Binding.name_of cbind)
+          in
+            HOLogic.mk_prod (ctag, HOLogic.mk_list @{typ T} ts)
+          end
+        val body = @{const "datatype"} $
+          HOLogic.mk_list @{typ "string * T"} (map one_constr constrs)
+      in
+        HOLCF_Library.big_lambdas (map Free targs) body
+      end
+    val datatypes = map2 mk_datatype targss rhss
+ 
+    (* Print some stuff for debugging *)
+    val _ = map (writeln o Syntax.string_of_term ctxt) datatypes
 
-    val specs = map prep_spec raw_specs
     val info = ()
   in
     (info, lthy)
