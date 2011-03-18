@@ -4,32 +4,26 @@ theory Halicore_Syntax
 imports Halicore_Defs
 begin
 
-nonterminal hval
-nonterminal hvals
-nonterminal harg
-nonterminal hargs
-nonterminal htyp
-nonterminal hidt
-nonterminal hkind
+subsection {* ``Halicore brackets'' *}
 
-text "``Halicore brackets''"
+nonterminal hval
+nonterminal htyp
 
 syntax
   "_hquote"   :: "hval => logic"  ("\<guillemotleft>_\<guillemotright>")
-  "_hunquote" :: "logic => hval"  ("\<lbrace>_\<rbrace>")
   "_htquote"  :: "htyp => logic"  ("\<langle>_\<rangle>")
+  "_hunquote" :: "logic => hval"  ("\<lbrace>_\<rbrace>")
   "_hunquote" :: "logic => htyp"  ("\<lbrace>_\<rbrace>")
+
 translations
   "_hquote x" => "x"
   "_hunquote x" => "x"
   "x" <= "_hunquote (_hquote x)"
   "_htquote x" => "x"
-(*  "_htunquote x" => "x" *)
   "x" <= "_hunquote (_htquote x)"
 
-ML_val Syntax.string_of_term
-ML_val ML_Syntax.print_term
-ML_val Syntax.str_of_ast
+text {* The following print translation removes any pair of antiquote
+brackets that encloses just a single constant or variable. *}
 
 print_ast_translation {*
   let
@@ -46,37 +40,51 @@ print_ast_translation {*
   end
 *}
 
-text "Value application"
+subsection {* Value application *}
 
 syntax
   ""       :: "id => hval"              ("_")
   ""       :: "longid => hval"          ("_")
   ""       :: "hval => hval"            ("'(_')")
   "_happ"  :: "hval => hval => hval"    ("(1_/ _)" [999, 1000] 999)
+
 translations
   "_happ f x" => "CONST V_app f x"
   "_hquote (_happ (_hunquote f) (_hunquote x))" <= "CONST V_app f x"
 
-text "Type application"
+subsection {* Application of values to types *}
+
+syntax
+  "_hvtapp" :: "hval => htyp => hval"  ("(1_/ @_)" [999, 1000] 999)
+
+translations
+  "_hvtapp x t" => "CONST T_app x t"
+  "_hquote (_hvtapp (_hunquote x) (_hunquote t))" <= "CONST T_app x t"
+
+subsection {* Type application *}
 
 syntax
   ""       :: "id => htyp"              ("_")
   ""       :: "longid => htyp"          ("_")
   ""       :: "htyp => htyp"            ("'(_')")
   "_htapp"  :: "htyp => htyp => htyp"    ("(1_/ _)" [999, 1000] 999)
+
 translations
   "_htapp t u" => "CONST T_apply t u"
   "_htquote (_htapp (_hunquote t) (_hunquote u))" <= "CONST T_apply t u"
 
-text "Function arrow syntax"
+subsection {* Function arrow syntax *}
 
 syntax
   "_htfun" :: "htyp => htyp => htyp"    (infixr "\<rightarrow>" 10)
+
 translations
   "_htfun a b" == "_htapp (_htapp (CONST funT) a) b"
   "CONST funT" <= "_hunquote (CONST funT)"
 
-text "Kind syntax"
+subsection {* Kind syntax *}
+
+nonterminal hkind
 
 setup {*
   Sign.add_modesyntax Syntax.mode_input
@@ -86,7 +94,11 @@ setup {*
      ("", "hkind => hkind", Delimfix "'(_')")]
 *}
 
-text "Lambda abstractions"
+subsection {* Lambda abstractions *}
+
+nonterminal harg
+nonterminal hargs
+nonterminal hidt
 
 syntax
   "_habs"  :: "harg => hval => hval"
@@ -97,6 +109,7 @@ syntax
   "_htarg" :: "hidt => harg"            ("@_")
   ""       :: "id => hidt"              ("_")
   "_hidt"  :: "id => hkind => hidt"     ("'(_::_')")
+
 translations
   "_hlam (_hargs p ps) r" == "_hlam (_harg p) (_hlam ps r)"
   "_hlam (_harg p) r" == "_habs p r"
@@ -104,17 +117,27 @@ translations
   "_habs (_htarg (_hidt a k)) r" => "CONST T_lam (_abs (_constrain a k) r)"
   "_habs (_htarg a) r" => "CONST T_lam (_abs (a::T) r)"
   "_hquote (_habs (_hvarg x (_hunquote t)) (_hunquote r))" <= "CONST V_lam t (_abs x r)"
-  "_hquote (_habs (_htarg a) (_hunquote r))" <= "CONST T_lam (_abs a r)"
 
-text "Application of terms to types"
+text {* This print translation for type-lambdas puts a kind annotation
+on the type variable unless it is of kind star (@{text \<star>}). *}
 
-syntax
-  "_hvtapp" :: "hval => htyp => hval"  ("(1_/ @_)" [999, 1000] 999)
-translations
-  "_hvtapp x t" => "CONST T_app x t"
-  "_hquote (_hvtapp (_hunquote x) (_hunquote t))" <= "CONST T_app x t"
+print_translation {*
+  [(@{const_syntax T_lam}, fn [Abs (abs as (_, T, _))] =>
+    let
+      val (x, t) = atomic_abs_tr' abs
+      val hidt = Syntax.const @{syntax_const "_hidt"}
+      val habs = Syntax.const @{syntax_const "_habs"}
+      val htarg = Syntax.const @{syntax_const "_htarg"}
+      val hquote = Syntax.const @{syntax_const "_hquote"}
+      val hunquote = Syntax.const @{syntax_const "_hunquote"}
+      val x' =
+        if T = @{typ T} then x else hidt $ x $ Syntax.term_of_typ false T
+    in
+      hquote $ (habs $ (htarg $ x') $ (hunquote $ t))
+    end)]
+*}
 
-text "Forall types"
+subsection {* Forall types *}
 
 nonterminal hidts
 
@@ -123,16 +146,35 @@ syntax
   "_hidt1"   :: "hidt => hidts"          ("_")
   "_hforall" :: "hidts => htyp => htyp"  ("(forall _./ _)" [0, 3] 3)
   "_hall"    :: "hidt => htyp => htyp"
+
 translations
   "_hforall (_hidts t ts) r" == "_hforall (_hidt1 t) (_hforall ts r)"
   "_hforall (_hidt1 t) r" == "_hall t r"
   "_hall (_hidt a k) r" => "CONST forallT (_abs (_constrain a k) r)"
-  "_hall a r" => "CONST forallT (_abs a r)"
-  "_htquote (_hall a (_hunquote r))" <= "CONST forallT (_abs a r)"
-(* TODO: show kind annotations when necessary *)
-(* use advanced print_translation for this *)
+  "_hall a r" => "CONST forallT (_abs (a::T) r)"
 
-text "Case expressions"
+text {* This print translation for forall-types puts a kind annotation
+on the type variable unless it is of kind star (@{text \<star>}). *}
+
+print_translation {*
+  [(@{const_syntax forallT}, fn [Abs (abs as (_, T, _))] =>
+    let
+      val (x, t) = atomic_abs_tr' abs
+      val hidt = Syntax.const @{syntax_const "_hidt"}
+      val hall = Syntax.const @{syntax_const "_hall"}
+      val htquote = Syntax.const @{syntax_const "_htquote"}
+      val hunquote = Syntax.const @{syntax_const "_hunquote"}
+      val x' =
+        if T = @{typ T} then x else hidt $ x $ Syntax.term_of_typ false T
+    in
+      htquote $ (hall $ x' $ (hunquote $ t))
+    end)]
+*}
+
+(* TODO: The two print translations above have a lot of duplication.
+It would be better to factor out the common parts. *)
+
+subsection {* Case expressions *}
 
 nonterminal hmatch
 nonterminal hpat
@@ -168,7 +210,7 @@ translations
   "_hwild r" => "CONST allmatch r"
   "_hmquote (_hwild (_hunquote r))" <= "CONST allmatch r"
 
-text "Examples"
+subsection {* Examples *}
 
 term "\<langle>forall a. a \<rightarrow> a\<rangle>"
 term "\<langle>forall a b c. a \<rightarrow> b \<rightarrow> c \<rightarrow> a\<rangle>"
@@ -179,8 +221,8 @@ term "\<guillemotleft>\<lambda> (x::m (m a b c d \<rightarrow> b) b c d) (y::b \
 term "\<guillemotleft>\<lambda> (f::forall a. a \<rightarrow> a). f @b\<guillemotright>"
 term "\<guillemotleft>\<lambda> (x::a). f @a @b x\<guillemotright>"
 term "\<guillemotleft>\<lambda> @a (x::a). x\<guillemotright>"
-term "\<guillemotleft>\<lambda> @(m::* \<rightarrow> * \<rightarrow> *). x\<guillemotright>"
-term "\<guillemotleft>\<lambda> @(m::(\<star> \<rightarrow> *) \<rightarrow> * \<rightarrow> *) @(a::\<star>). f@(m b a) x\<guillemotright>"
+term "\<guillemotleft>\<lambda> @(m::\<star> \<rightarrow> \<star> \<rightarrow> \<star>). x\<guillemotright>"
+term "\<guillemotleft>\<lambda> @(m::(\<star> \<rightarrow> \<star>) \<rightarrow> \<star> \<rightarrow> \<star>) @(a::\<star>). f@(m b a) x\<guillemotright>"
 term "\<guillemotleft>\<lambda> @a (x::a). f @a x\<guillemotright>"
 term "\<guillemotleft>case (t) v of w {_ \<rightarrow> g}\<guillemotright>"
 
