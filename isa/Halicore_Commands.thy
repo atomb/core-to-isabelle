@@ -2,7 +2,7 @@ header {* Definition packages for Halicore datatypes and functions *}
 
 theory Halicore_Commands
 imports Halicore_Syntax
-uses ("datatype.ML")
+uses ("datatype.ML") ("function.ML")
 begin
 
 subsection {* Defining datatypes *}
@@ -28,31 +28,11 @@ halicore_data Tree2 (m :: "\<star> \<rightarrow> \<star>") = Tip | Branch "m (Tr
 
 subsection {* Defining functions *}
 
-text {*
-Right now, the @{text halicore_fun} command parses its input,
-but doesn't do anything yet.
-*}
+text {* Right now, the @{text halicore_fun} command parses its input,
+defines the constants, and proves unfolding rules. It doesn't generate
+typing rules or any other theorems yet. *}
 
-ML {*
-
-(*** Outer syntax parsers ***)
-
-val parse_htype : string parser =
-  Parse.group "Halicore type" Parse.term_group
-
-val parse_halicore_fun_decl : ((binding * string) * string) list parser =
-  Parse.and_list
-    (Parse.binding --| Parse.$$$ "::" -- parse_htype --
-      (Parse.$$$ "=" |-- Parse.term_group))
-
-val _ =
-  Outer_Syntax.local_theory
-    "halicore_fun"
-    "define functions (Halicore)"
-    Keyword.thy_decl
-    (parse_halicore_fun_decl >> K I)
-
-*}
+use "function.ML"
 
 (*
 Usage examples:
