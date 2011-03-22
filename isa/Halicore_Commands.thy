@@ -7,10 +7,9 @@ begin
 
 subsection {* Defining datatypes *}
 
-text {*
-Right now, the @{text halicore_data} command parses its input, and
-defines datatypes, but it doesn't define constructor functions yet.
-*}
+text {* So far, the @{text halicore_data} command parses its input,
+and defines constants for datatypes and their constructors. But it
+doesn't prove many theorems about them yet. *}
 
 use "datatype.ML"
 

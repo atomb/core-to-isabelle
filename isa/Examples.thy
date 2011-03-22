@@ -150,10 +150,6 @@ lemma Maybe_unfold:
   "\<langle>Maybe a\<rangle> = datatype [(''Nothing'', []), (''Just'', [a])]"
 by (rule Maybe_unfold_raw [THEN T_apply_eqI], simp)
 
-definition "Nothing = \<guillemotleft>\<lambda>@(a::\<star>). \<lbrace>Vcon\<cdot>''Nothing''\<cdot>[]\<rbrace>\<guillemotright>"
-
-definition "Just = \<guillemotleft>\<lambda>@(a::\<star>) (x::a). \<lbrace>Vcon\<cdot>''Just''\<cdot>[x]\<rbrace>\<guillemotright>"
-
 text "Case expression syntax for Maybe type"
 
 translations

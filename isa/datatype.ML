@@ -21,6 +21,23 @@ struct
 
 type info = unit
 
+val kstar = @{typ T}
+
+fun forall_const k =
+  Const (@{const_name forallT}, (k --> kstar) --> kstar)
+
+fun mk_forall (a, t) =
+  forall_const (fastype_of a) $ Term.lambda a t
+
+fun T_lam_const k =
+  Const (@{const_name T_lam}, (k --> @{typ V}) --> @{typ V})
+
+fun mk_T_lam (a, t) =
+  T_lam_const (fastype_of a) $ Term.lambda a t
+
+fun mk_V_lam ((x, t), e) =
+  @{const V_lam} $ t $ Term.lambda x e
+
 fun gen_add_halicore_data
     (prep_typ : local_theory -> 'a -> typ)
     (prep_term : local_theory -> 'b -> term)
@@ -62,21 +79,28 @@ fun gen_add_halicore_data
       end
     val rhss : (binding * term list) list list = map2 prep_rhs targss raw_rhss
 
+    (* Define constructor tags *)
+    fun define_tag (cbind, ts) =
+      let
+        val ctag = HOLogic.mk_string (Binding.name_of cbind)
+        (* TODO: eventually, we should define constants for these *)
+      in
+        ((cbind, ctag), ts)
+      end
+    val rhss' : ((binding * term) * term list) list list =
+      map (map define_tag) rhss
+
     (* Build recursive datatype equations *)
     fun mk_datatype targs constrs =
       let
-        fun one_constr (cbind, ts) =
-          let
-            val ctag = HOLogic.mk_string (Binding.name_of cbind)
-          in
-            HOLogic.mk_prod (ctag, HOLogic.mk_list @{typ T} ts)
-          end
+        fun one_constr ((cbind, ctag), ts) =
+          HOLogic.mk_prod (ctag, HOLogic.mk_list @{typ T} ts)
         val body = @{const "datatype"} $
           HOLogic.mk_list @{typ "string * T list"} (map one_constr constrs)
       in
         HOLCF_Library.big_lambdas (map Free targs) body
       end
-    val tycon_rhss = map2 mk_datatype targss rhss
+    val tycon_rhss = map2 mk_datatype targss rhss'
 
     (* Prove continuity of datatype functional *)
     val functional =
@@ -120,6 +144,33 @@ fun gen_add_halicore_data
       ((Binding.suffix_name "_unfold_raw" tbind, []), [thm])
     val (thmss, lthy) = lthy
       |> fold_map (Local_Theory.note o unfold_note) unfold_thms
+
+    (* Define data constructor constants *)
+    fun define_constrs ((tycon, targs), rhs) lthy =
+      let
+        val used = map fst targs
+        fun one_def bind rhs =
+          ((bind, NoSyn), ((Binding.suffix_name "_def" bind, []), rhs))
+        fun define_constr ((cbind, ctag), ts) lthy =
+          let
+            val x_names = Name.variant_list used (map (K "x") ts)
+            val xs = map (fn x => Free (x, @{typ V})) x_names
+            val e1 = HOLCF_Library.mk_capply (@{const Vcon}, ctag)
+            val e2 = HOLCF_Library.mk_capply (e1, HOLogic.mk_list @{typ V} xs)
+            val e3 = Library.foldr mk_V_lam (xs ~~ ts, e2)
+            val e4 = Library.foldr mk_T_lam (map Free targs, e3)
+            val ((con, (s, def_thm)), lthy) = lthy
+              |> Local_Theory.define (one_def cbind e4)
+            (* TODO: prove typing rule *)
+          in
+            (* eventually we'll have to return some other stuff too *)
+            ((), lthy)
+          end
+      in
+        fold_map define_constr rhs lthy
+      end
+    val (_, lthy) = lthy
+      |> fold_map define_constrs ((tycons ~~ targss) ~~ rhss')
 
     val info = ()
   in
