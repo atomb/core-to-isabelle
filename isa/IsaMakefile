@@ -21,23 +21,17 @@ SRC = $(ISABELLE_HOME)/src
 OUT = $(ISABELLE_OUTPUT)
 LOG = $(OUT)/log
 
-# turn image into absolute path according to ISABELLE_IMAGE_PATH or OUT
-ifeq ($(ISABELLE_IMAGE_PATH),)
-IMAGE=$(OUT)/$(BASE-IMAGE)
-else
-IMAGE=$(ISABELLE_IMAGE_PATH)$(BASE-IMAGE)
-endif
+USEDIR = $(ISABELLE_TOOL) usedir -b -g true -v true -i true -V outline=/proof,/ML -d pdf -P "http://isabelle.in.tum.de/library/" # -D generated
 
-
-#USEDIR = $(ISABELLE_TOOL) usedir -b -g true -v true -i true -V outline=/proof,/ML -d pdf -P "http://isabelle.in.tum.de/library/" # -D generated
-USEDIR = $(ISABELLE_TOOL) usedir -b -g true
+# Replace previous line with this one to compile Halicore without pdf docs
+# USEDIR = $(ISABELLE_TOOL) usedir -b -g true
 
 ## dependencies
 
 $(SESSION-NAME): $(LOG)/$(SESSION-NAME).gz
 
-$(LOG)/$(SESSION-NAME).gz: $(IMAGE) ROOT.ML *.thy document/*.tex
-	$(USEDIR) $(IMAGE) $(SESSION-NAME)
+$(LOG)/$(SESSION-NAME).gz: ROOT.ML *.thy document/*.tex
+	$(USEDIR) $(BASE-IMAGE) $(SESSION-NAME)
 
 
 ## clean
