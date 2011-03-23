@@ -189,6 +189,35 @@ fun gen_add_halicore_data
     val (_, lthy) = lthy
       |> fold_map (Local_Theory.note o unfold_note') unfold_thms'
 
+    (* Prove has_constructor theorems *)
+    fun prove_has_constrs ((tycon, targs), rhs) (tbind, unfold_thm) =
+      let
+        val lhs = Library.foldl mk_T_apply (tycon, map Free targs)
+        val xs = map fst targs
+        fun prove_has_constr ((cbind, ctag), ts) =
+          let
+            val list = HOLogic.mk_list @{typ T} ts
+            val goal = @{const has_constructor} $ lhs $ ctag $ list
+            val prop = HOLogic.mk_Trueprop goal
+            val rules = @{thms has_constructor_simps}
+            val tac1 = rtac @{thm has_constructor_intro} 1
+            val tac2 = rtac unfold_thm 1
+            val tac3 = simp_tac (HOL_ss addsimps rules) 1
+            val tac = tac1 THEN tac2 THEN tac3
+          in
+            Goal.prove lthy xs [] prop (K tac)
+          end
+        val thms = map prove_has_constr rhs
+        val thm_bind = Binding.suffix_name "_has_constructor" tbind
+        val attrib = Attrib.internal (K Halicore_Typecheck.add_con_rule)
+      in
+        ((thm_bind, [attrib]), thms)
+      end
+    val has_constr_thms =
+      map2 prove_has_constrs (tycons ~~ targss ~~ rhss') unfold_thms'
+    val (_, lthy) = lthy
+      |> fold_map Local_Theory.note has_constr_thms
+
     (* Define data constructor constants *)
     fun define_constrs ((tycon, targs), rhs) lthy =
       let

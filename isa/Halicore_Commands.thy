@@ -1,22 +1,37 @@
 header {* Definition packages for Halicore datatypes and functions *}
 
 theory Halicore_Commands
-imports Halicore_Syntax
+imports Halicore_Syntax Halicore_Typecheck
 uses ("datatype.ML") ("function.ML")
 begin
 
 subsection {* Defining datatypes *}
 
-text {* So far, the @{text halicore_data} command parses its input,
-and defines constants for datatypes and their constructors. But it
-doesn't prove many theorems about them yet. *}
+text {* The @{text halicore_data} command parses its input, and
+defines constants for datatypes and their constructors. So far, it
+proves the following theorems:
+
+\begin{itemize}
+\item A definition for each type constructor (@{text Tycon_def})
+\item An unfolding rule for each unapplied tycon (@{text Tycon_unfold_raw})
+\item An unfolding rule for each fully-applied tycon (@{text Tycon_unfold})
+\item A definition for each data constructor (@{text Cons_def})
+\item A set of @{text has_constructor} rules for each type constructor
+  (@{text Tycon_has_constructor}), declared with the @{text
+  "[constructor_rule]"} attribute
+\end{itemize}
+*}
 
 subsubsection {* Lemmas used with internal proofs *}
 
 lemma T_apply_eqI: "t = (\<Lambda> a. f a) \<Longrightarrow> cont f \<Longrightarrow> \<langle>t a\<rangle> = f a"
 unfolding T_apply_def by simp
 
-subsection {* Loading the datatype package *}
+lemmas has_constructor_simps =
+  lookup_defls.simps fst_conv snd_conv refl if_True if_False
+  list.simps(1-3) char.inject nibble.simps(1-240)
+
+subsubsection {* Loading the datatype package *}
 
 use "datatype.ML"
 

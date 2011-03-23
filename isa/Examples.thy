@@ -143,20 +143,6 @@ subsection "Maybe datatype"
 
 halicore_data Maybe a = Nothing | Just "a"
 
-lemma has_constructor_Nothing [constructor_rule]:
-  shows "has_constructor \<langle>Maybe a\<rangle> ''Nothing'' []"
-apply (rule has_constructor_intro)
-apply (rule Maybe_unfold)
-apply simp
-done
-
-lemma has_constructor_Just [constructor_rule]:
-  shows "has_constructor \<langle>Maybe a\<rangle> ''Just'' [a]"
-apply (rule has_constructor_intro)
-apply (rule Maybe_unfold)
-apply simp
-done
-
 text "Case expression syntax for Maybe type"
 
 translations
@@ -169,7 +155,7 @@ lemma has_type_Nothing [type_rule]:
   "Nothing ::: \<langle>forall a. Maybe a\<rangle>"
 unfolding Nothing_def
 apply (intro has_type_T_lam cont2cont)
-apply (rule has_constructor_Nothing [THEN has_type_Vcon])
+apply (rule Maybe_has_constructor(1) [THEN has_type_Vcon])
 apply (intro have_types.intros)
 done
 
@@ -177,7 +163,7 @@ lemma has_type_Just [type_rule]:
   "Just ::: \<langle>forall a. a \<rightarrow> Maybe a\<rangle>"
 unfolding Just_def
 apply (intro has_type_T_lam has_type_V_lam cont2cont)
-apply (rule has_constructor_Just [THEN has_type_Vcon])
+apply (rule Maybe_has_constructor(2) [THEN has_type_Vcon])
 apply (intro have_types.intros, assumption+)
 done
 
