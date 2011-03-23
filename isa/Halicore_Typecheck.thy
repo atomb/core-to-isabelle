@@ -14,7 +14,7 @@ lemmas type_cont_rules =
 lemmas term_cont_rules =
   type_cont_rules
   cont_V_app cont_V_lam
-  cont_T_app cont_T_abs
+  cont_T_app cont_T_lam
   cont_cases cont_match cont_allmatch
   cont_branch0 cont_branchV
 

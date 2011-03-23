@@ -193,7 +193,7 @@ lemma cont_T_app [simp, cont2cont]:
   shows "cont (\<lambda>x. T_app (v x) (t x))"
 unfolding T_app_def by (simp add: v cont_compose [OF t])
 
-lemma cont_T_abs [simp, cont2cont]:
+lemma cont_T_lam [simp, cont2cont]:
   assumes "cont (\<lambda>p. f (fst p) (snd p))"
   shows "cont (\<lambda>x. T_lam (\<lambda>a. f x a))"
 proof -
