@@ -150,6 +150,20 @@ lemma Maybe_unfold:
   "\<langle>Maybe a\<rangle> = datatype [(''Nothing'', []), (''Just'', [a])]"
 by (rule Maybe_unfold_raw [THEN T_apply_eqI], simp)
 
+lemma has_constructor_Nothing [constructor_rule]:
+  shows "has_constructor \<langle>Maybe a\<rangle> ''Nothing'' []"
+apply (rule has_constructor_intro)
+apply (rule Maybe_unfold)
+apply simp
+done
+
+lemma has_constructor_Just [constructor_rule]:
+  shows "has_constructor \<langle>Maybe a\<rangle> ''Just'' [a]"
+apply (rule has_constructor_intro)
+apply (rule Maybe_unfold)
+apply simp
+done
+
 text "Case expression syntax for Maybe type"
 
 translations
@@ -160,15 +174,19 @@ translations
 
 lemma has_type_Nothing [type_rule]:
   "Nothing ::: \<langle>forall a. Maybe a\<rangle>"
-unfolding Nothing_def Maybe_unfold
-by (intro has_type_T_lam cont2cont
-  has_type_datatype_intro1 have_types.intros)
+unfolding Nothing_def
+apply (intro has_type_T_lam cont2cont)
+apply (rule has_constructor_Nothing [THEN has_type_Vcon])
+apply (intro have_types.intros)
+done
 
 lemma has_type_Just [type_rule]:
   "Just ::: \<langle>forall a. a \<rightarrow> Maybe a\<rangle>"
-unfolding Just_def Maybe_unfold
-by (intro has_type_T_lam has_type_V_lam cont2cont has_type_datatype_intro1
-  has_type_datatype_intro2 have_types.intros) simp_all
+unfolding Just_def
+apply (intro has_type_T_lam has_type_V_lam cont2cont)
+apply (rule has_constructor_Just [THEN has_type_Vcon])
+apply (intro have_types.intros, assumption+)
+done
 
 lemma Nothing_eq_Vcon:
   fixes a :: "\<star>" shows "\<guillemotleft>Nothing @a\<guillemotright> = Vcon\<cdot>''Nothing''\<cdot>[]"
@@ -238,20 +256,6 @@ lemma maybemap_Just:
   assumes [type_rule]: "x ::: \<langle>a\<rangle>"
   shows "\<guillemotleft>maybemap @a @b f (Just @a x)\<guillemotright> = \<guillemotleft>Just @b (f x)\<guillemotright>"
 by (simp add: maybemap_beta case_Maybe)
-
-lemma has_constructor_Nothing [constructor_rule]:
-  shows "has_constructor \<langle>Maybe a\<rangle> ''Nothing'' []"
-apply (rule has_constructor_intro)
-apply (rule Maybe_unfold)
-apply simp
-done
-
-lemma has_constructor_Just [constructor_rule]:
-  shows "has_constructor \<langle>Maybe a\<rangle> ''Just'' [a]"
-apply (rule has_constructor_intro)
-apply (rule Maybe_unfold)
-apply simp
-done
 
 lemma has_type_maybemap [type_rule]:
   "maybemap ::: \<langle>forall aadk badl. (aadk \<rightarrow> badl) \<rightarrow> Maybe aadk \<rightarrow> Maybe badl\<rangle>"

@@ -387,17 +387,16 @@ lemmas has_type_datatype_elims =
   has_type_datatype_Cons_elim
   has_type_datatype_Nil_elim
 
-lemma has_type_datatype_intro1:
-  assumes "have_types xs ts"
-  shows "Vcon\<cdot>s\<cdot>xs ::: datatype ((s, ts) # ds)"
-unfolding has_type_def cast_datatype
-by (simp add: assms [unfolded have_types_iff])
+definition has_constructor :: "T \<Rightarrow> string \<Rightarrow> T list \<Rightarrow> bool"
+  where "has_constructor t s ts \<longleftrightarrow>
+    (\<exists>ds. t = datatype ds \<and> lookup_defls\<cdot>ds\<cdot>s = defls\<cdot>ts)"
 
-lemma has_type_datatype_intro2:
-  assumes "s \<noteq> s'" and "Vcon\<cdot>s\<cdot>xs ::: datatype ds"
-  shows "Vcon\<cdot>s\<cdot>xs ::: datatype ((s', ts) # ds)"
-using assms unfolding has_type_def cast_datatype
-by simp
+lemma has_type_Vcon:
+  assumes t: "has_constructor t s ts"
+  assumes xs: "have_types xs ts"
+  shows "Vcon\<cdot>s\<cdot>xs ::: t"
+using assms unfolding has_constructor_def
+by (auto simp add: has_type_def cast_datatype have_types_iff)
 
 
 subsection {* Case expressions *}
@@ -482,10 +481,6 @@ domain_isomorphism M = "V \<rightarrow>! V"
 
 definition M_type :: "M \<Rightarrow> T \<Rightarrow> T \<Rightarrow> bool"
   where "M_type m t u \<longleftrightarrow> (\<forall>x. x ::: t \<longrightarrow> sfun_rep\<cdot>(M_rep\<cdot>m)\<cdot>x ::: u)"
-
-definition has_constructor :: "T \<Rightarrow> string \<Rightarrow> T list \<Rightarrow> bool"
-  where "has_constructor t s ts \<longleftrightarrow>
-    (\<exists>ds. t = datatype ds \<and> lookup_defls\<cdot>ds\<cdot>s = defls\<cdot>ts)"
 
 definition allmatch :: "V \<Rightarrow> M"
   where "allmatch v = M_abs\<cdot>(sfun_abs\<cdot>(\<Lambda> x. v))"
