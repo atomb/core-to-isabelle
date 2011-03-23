@@ -1,0 +1,57 @@
+Isabelle/Halicore installation instructions for Linux:
+------------------------------------------------------
+
+1.) Download the Isabelle2011 bundle for Linux from the Isabelle
+download page at http://isabelle.in.tum.de/download.html
+
+2.) Unpack the tarball. (In this example, I will use /usr/local, but
+you should be able to put it just about anywhere you want.)
+
+sudo tar -C /usr/local -xvf Isabelle2011_bundle_x86-linux.tar.gz
+
+3.) Build the HOLCF heap image. The 2011 release only comes with HOL
+pre-built. To build HOLCF, run the "build" script in the installation
+directory:
+
+sudo /usr/local/Isabelle2011/build -m HOLCF
+
+The compilation will take a minute or two. The "sudo" is required
+because "build" saves the HOLCF image under the /usr/local hierarchy;
+it should not be necessary if you installed Isabelle under your home
+directory.
+
+4.) Build the Halicore heap image. Move to the "isa" subdirectory of
+your local copy of the Halicore repository, and then run the Isabelle
+"usedir" script. This may take another minute or two. (The "usedir"
+script saves the Halicore image in ~/.isabelle/Isabelle2011/heaps.)
+
+cd core-to-isabelle/isa
+/usr/local/Isabelle2011/bin/isabelle usedir -b HOLCF Halicore
+
+5.) Install the Halicore keywords file for Proof-General. The Halicore
+theories extend Isabelle with some new definition packages; Emacs and
+Proof-General require an updated keywords file to be able to parse and
+highlight the new commands correctly. Copy the keywords file from the
+Halicore repo into your Isabelle settings directory.
+
+mkdir -p ~/.isabelle/Isabelle2011/etc/
+cd core-to-isabelle/isa
+cp isar-keywords-halicore.el ~/.isabelle/Isabelle2001/etc/
+
+6.) Start Isabelle/Halicore with emacs and Proof-General. Command-line
+options are used to specify the Halicore heap image and keyword file.
+
+/usr/local/Isabelle2011/bin/isabelle emacs -l Halicore -k halicore
+
+For convenience, you can create a script to launch Isabelle/Halicore.
+Save the following lines in ~/bin/halicore (or somewhere else on your
+path) and "chmod +x".
+
+#!usr/bin/env bash
+exec "/usr/local/Isabelle2011/bin/isabelle" \
+  emacs -l Halicore -k halicore "$@" &
+
+Now you can start Isabelle/Halicore with the command "halicore".
+Filenames can optionally be given as command-line arguments.
+
+halicore [Filename.thy]
