@@ -50,6 +50,9 @@ fun mk_T_apply (t, u) =
       | _ => raise TERM ("mk_T_apply", [t, u])
   in T_apply_const (S, T) $ t $ u end
 
+fun mk_funT (t, u) =
+  mk_T_apply (mk_T_apply (@{const funT}, t), u)
+
 fun dest_big_lambdas (Const (@{const_name Abs_cfun}, _) $ Abs (x, T, t)) =
   let
     val (x', t1) = Term.dest_abs (x, T, t)
@@ -219,12 +222,13 @@ fun gen_add_halicore_data
       |> fold_map Local_Theory.note has_constr_thms
 
     (* Define data constructor constants *)
-    fun define_constrs ((tycon, targs), rhs) lthy =
+    fun define_constrs (((tycon, targs), rhs), has_constr_thms) lthy =
       let
+        val t0 = Library.foldl mk_T_apply (tycon, map Free targs)
         val used = map fst targs
         fun one_def bind rhs =
           ((bind, NoSyn), ((Binding.suffix_name "_def" bind, []), rhs))
-        fun define_constr ((cbind, ctag), ts) lthy =
+        fun define_constr (((cbind, ctag), ts), has_constr_thm) lthy =
           let
             val x_names = Name.variant_list used (map (K "x") ts)
             val xs = map (fn x => Free (x, @{typ V})) x_names
@@ -232,18 +236,36 @@ fun gen_add_halicore_data
             val e2 = HOLCF_Library.mk_capply (e1, HOLogic.mk_list @{typ V} xs)
             val e3 = Library.foldr mk_V_lam (xs ~~ ts, e2)
             val e4 = Library.foldr mk_T_lam (map Free targs, e3)
-            val ((con, (s, def_thm)), lthy) = lthy
+            val ((constr, (def_thm_name, def_thm)), lthy) = lthy
               |> Local_Theory.define (one_def cbind e4)
-            (* TODO: prove typing rule *)
+
+            (* prove typing rule *)
+            val t1 = Library.foldr mk_funT (ts, t0)
+            val t2 = Library.foldr mk_forall (map Free targs, t1)
+            val goal = @{const has_type} $ constr $ t2
+            val prop = HOLogic.mk_Trueprop goal
+            val rules1 = @{thms has_type_constr_intros}
+            val tac0 = rewrite_goals_tac [def_thm]
+            val tac1 = REPEAT_ALL_NEW (match_tac rules1) 1
+            val tac2 = rtac (has_constr_thm RS @{thm has_type_Vcon}) 1
+            val tac3 = REPEAT (ares_tac @{thms have_types.intros} 1)
+            val tac = EVERY [tac0, tac1, tac2, tac3]
+            val has_type_thm =
+              Goal.prove lthy [] [] prop (K tac)
+            val thm_bind = Binding.prefix_name "has_type_" cbind
+            val attrib = Attrib.internal (K Halicore_Typecheck.add_type_rule)
+            val (_, lthy) = lthy
+              |> Local_Theory.note ((thm_bind, [attrib]), [has_type_thm])
           in
             (* eventually we'll have to return some other stuff too *)
             ((), lthy)
           end
       in
-        fold_map define_constr rhs lthy
+        fold_map define_constr (rhs ~~ has_constr_thms) lthy
       end
     val (_, lthy) = lthy
-      |> fold_map define_constrs ((tycons ~~ targss) ~~ rhss')
+      |> fold_map define_constrs
+        (((tycons ~~ targss) ~~ rhss') ~~ map snd has_constr_thms)
 
     val info = ()
   in

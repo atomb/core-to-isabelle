@@ -19,6 +19,8 @@ proves the following theorems:
 \item A set of @{text has_constructor} rules for each type constructor
   (@{text Tycon_has_constructor}), declared with the @{text
   "[constructor_rule]"} attribute
+\item A typing rule for each data constructor (@{text has_type_Cons}),
+  declared with the @{text "[type_rule]"} attribute
 \end{itemize}
 *}
 
@@ -30,6 +32,12 @@ unfolding T_apply_def by simp
 lemmas has_constructor_simps =
   lookup_defls.simps fst_conv snd_conv refl if_True if_False
   list.simps(1-3) char.inject nibble.simps(1-240)
+
+lemmas has_type_constr_intros =
+  has_type_T_lam has_type_V_lam
+  cont_id cont_const cont2cont_fst cont2cont_snd
+  cont2cont_APP cont2cont_Cons
+  cont_T_apply cont_forallT cont_V_lam cont_T_lam
 
 subsubsection {* Loading the datatype package *}
 
