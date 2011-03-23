@@ -143,13 +143,6 @@ subsection "Maybe datatype"
 
 halicore_data Maybe a = Nothing | Just "a"
 
-lemma T_apply_eqI: "t = (\<Lambda> a. f a) \<Longrightarrow> cont f \<Longrightarrow> \<langle>t a\<rangle> = f a"
-unfolding T_apply_def by simp
-
-lemma Maybe_unfold:
-  "\<langle>Maybe a\<rangle> = datatype [(''Nothing'', []), (''Just'', [a])]"
-by (rule Maybe_unfold_raw [THEN T_apply_eqI], simp)
-
 lemma has_constructor_Nothing [constructor_rule]:
   shows "has_constructor \<langle>Maybe a\<rangle> ''Nothing'' []"
 apply (rule has_constructor_intro)

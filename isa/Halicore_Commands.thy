@@ -11,6 +11,13 @@ text {* So far, the @{text halicore_data} command parses its input,
 and defines constants for datatypes and their constructors. But it
 doesn't prove many theorems about them yet. *}
 
+subsubsection {* Lemmas used with internal proofs *}
+
+lemma T_apply_eqI: "t = (\<Lambda> a. f a) \<Longrightarrow> cont f \<Longrightarrow> \<langle>t a\<rangle> = f a"
+unfolding T_apply_def by simp
+
+subsection {* Loading the datatype package *}
+
 use "datatype.ML"
 
 (*
@@ -23,7 +30,9 @@ and Forest a = Empty | Trees "Tree a" "Forest a"
 
 halicore_data Tree2 (m :: "\<star> \<rightarrow> \<star>") = Tip | Branch "m (Tree2 m)"
 
+halicore_data BinTree a b = Leaf "a" | Node "b" "BinTree a b" "BinTree a b"
 *)
+
 
 subsection {* Defining functions *}
 

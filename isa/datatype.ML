@@ -21,6 +21,8 @@ struct
 
 type info = unit
 
+(*** Building terms and types ***)
+
 val kstar = @{typ T}
 
 fun forall_const k =
@@ -37,6 +39,28 @@ fun mk_T_lam (a, t) =
 
 fun mk_V_lam ((x, t), e) =
   @{const V_lam} $ t $ Term.lambda x e
+
+fun T_apply_const (S, T) =
+  Const(@{const_name T_apply}, HOLCF_Library.mk_cfunT (S, T) --> (S --> T))
+
+fun mk_T_apply (t, u) =
+  let val (S, T) =
+    case fastype_of t of
+        Type(@{type_name cfun}, [S, T]) => (S, T)
+      | _ => raise TERM ("mk_T_apply", [t, u])
+  in T_apply_const (S, T) $ t $ u end
+
+fun dest_big_lambdas (Const (@{const_name Abs_cfun}, _) $ Abs (x, T, t)) =
+  let
+    val (x', t1) = Term.dest_abs (x, T, t)
+    val (vs, t2) = dest_big_lambdas t1
+  in
+    ((x', T) :: vs, t2)
+  end
+  | dest_big_lambdas t = ([], t)
+
+
+(*** Defining Halicore datatypes ***)
 
 fun gen_add_halicore_data
     (prep_typ : local_theory -> 'a -> typ)
@@ -142,8 +166,28 @@ fun gen_add_halicore_data
     val unfold_thms = unfolds tbinds tuple_unfold_thm
     fun unfold_note (tbind, thm) : Attrib.binding * Thm.thm list =
       ((Binding.suffix_name "_unfold_raw" tbind, []), [thm])
-    val (thmss, lthy) = lthy
+    val (_, lthy) = lthy
       |> fold_map (Local_Theory.note o unfold_note) unfold_thms
+
+    (* Prove applied form of unfold rules *)
+    fun prove_applied_unfold thm =
+      let
+        val concl = concl_of thm
+        val (lhs, rhs) = HOLogic.dest_eq (HOLogic.dest_Trueprop concl)
+        val (vs, rhs') = dest_big_lambdas rhs
+        val lhs' = Library.foldl mk_T_apply (lhs, map Free vs)
+        val prop = HOLogic.mk_Trueprop (HOLogic.mk_eq (lhs', rhs'))
+        val rule = Library.foldl (op RS) (thm, map (K @{thm T_apply_eqI}) vs)
+        val rules = Cont2ContData.get lthy
+        val tac = rtac rule 1 THEN REPEAT (match_tac rules 1)
+      in
+        Goal.prove lthy (map fst vs) [] prop (K tac)
+      end
+    val unfold_thms' = map (apsnd prove_applied_unfold) unfold_thms
+    fun unfold_note' (tbind, thm) : Attrib.binding * Thm.thm list =
+      ((Binding.suffix_name "_unfold" tbind, []), [thm])
+    val (_, lthy) = lthy
+      |> fold_map (Local_Theory.note o unfold_note') unfold_thms'
 
     (* Define data constructor constants *)
     fun define_constrs ((tycon, targs), rhs) lthy =
