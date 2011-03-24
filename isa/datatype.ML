@@ -63,6 +63,18 @@ fun dest_big_lambdas (Const (@{const_name Abs_cfun}, _) $ Abs (x, T, t)) =
   | dest_big_lambdas t = ([], t)
 
 
+(*** Wrappers for theory-updating commands ***)
+
+fun define (bind, rhs) lthy =
+  let
+    val attrib = (Binding.suffix_name "_def" bind, [])
+    val ((const, (_ (*thm_name*), def_thm)), lthy) = lthy
+      |> Local_Theory.define ((bind, NoSyn), (attrib, rhs))
+  in
+    ((const, def_thm), lthy)
+  end
+
+
 (*** Defining Halicore datatypes ***)
 
 fun gen_add_halicore_data
@@ -144,19 +156,17 @@ fun gen_add_halicore_data
     (* Define datatype constants *)
     val fixpoint =
       HOLCF_Library.mk_fix (HOLCF_Library.mk_cabs functional)
-    fun one_def tbind rhs =
-      ((tbind, NoSyn), ((Binding.suffix_name "_def" tbind, []), rhs))
     fun defs [] _ = []
-      | defs (b::[]) t = [one_def b t]
+      | defs (b::[]) t = [(b, t)]
       | defs (b::bs) t =
-          one_def b (HOLCF_Library.mk_fst t) ::
-            defs bs (HOLCF_Library.mk_snd t)
-    val (fixdef_thms : (term * (string * thm)) list, lthy) = lthy
-      |> fold_map Local_Theory.define (defs tbinds fixpoint)
+          (b, HOLCF_Library.mk_fst t) ::
+          defs bs (HOLCF_Library.mk_snd t)
+    val (fixdef_thms : (term * thm) list, lthy) = lthy
+      |> fold_map define (defs tbinds fixpoint)
 
     (* Generate datatype unfolding rules *)
     fun pair_equalI (thm1, thm2) = @{thm Pair_equalI} OF [thm1, thm2]
-    val tuple_fixdef_thm = foldr1 pair_equalI (map (snd o snd) fixdef_thms)
+    val tuple_fixdef_thm = foldr1 pair_equalI (map snd fixdef_thms)
     val tuple_unfold_thm =
       Local_Defs.unfold lthy @{thms split_conv}
         (@{thm def_cont_fix_eq} OF [tuple_fixdef_thm, cont_thm])
@@ -226,8 +236,6 @@ fun gen_add_halicore_data
       let
         val t0 = Library.foldl mk_T_apply (tycon, map Free targs)
         val used = map fst targs
-        fun one_def bind rhs =
-          ((bind, NoSyn), ((Binding.suffix_name "_def" bind, []), rhs))
         fun define_constr (((cbind, ctag), ts), has_constr_thm) lthy =
           let
             val x_names = Name.variant_list used (map (K "x") ts)
@@ -236,8 +244,7 @@ fun gen_add_halicore_data
             val e2 = HOLCF_Library.mk_capply (e1, HOLogic.mk_list @{typ V} xs)
             val e3 = Library.foldr mk_V_lam (xs ~~ ts, e2)
             val e4 = Library.foldr mk_T_lam (map Free targs, e3)
-            val ((constr, (def_thm_name, def_thm)), lthy) = lthy
-              |> Local_Theory.define (one_def cbind e4)
+            val ((constr, def_thm), lthy) = define (cbind, e4) lthy
 
             (* prove typing rule *)
             val t1 = Library.foldr mk_funT (ts, t0)
