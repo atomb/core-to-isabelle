@@ -119,20 +119,21 @@ fun gen_add_halicore_data
     val rhss : (binding * term list) list list = map2 prep_rhs targss raw_rhss
 
     (* Define constructor tags *)
-    fun define_tag (cbind, ts) =
+    fun define_tag (cbind, ts) lthy =
       let
-        val ctag = HOLogic.mk_string (Binding.name_of cbind)
-        (* TODO: eventually, we should define constants for these *)
+        val rhs = HOLogic.mk_string (Binding.name_of cbind)
+        val ((ctag, ctag_def), lthy) =
+          define (Binding.suffix_name "_tag" cbind, rhs) lthy
       in
-        ((cbind, ctag), ts)
+        (((cbind, (ctag, ctag_def)), ts), lthy)
       end
-    val rhss' : ((binding * term) * term list) list list =
-      map (map define_tag) rhss
+    val (rhss' : ((binding * (term * thm)) * term list) list list, lthy) =
+      fold_map (fold_map define_tag) rhss lthy
 
     (* Build recursive datatype equations *)
     fun mk_datatype targs constrs =
       let
-        fun one_constr ((cbind, ctag), ts) =
+        fun one_constr ((cbind, (ctag, ctag_def)), ts) =
           HOLogic.mk_prod (ctag, HOLogic.mk_list @{typ T} ts)
         val body = @{const "datatype"} $
           HOLogic.mk_list @{typ "string * T list"} (map one_constr constrs)
@@ -207,12 +208,13 @@ fun gen_add_halicore_data
       let
         val lhs = Library.foldl mk_T_apply (tycon, map Free targs)
         val xs = map fst targs
-        fun prove_has_constr ((cbind, ctag), ts) =
+        val ctag_defs = map (snd o snd o fst) rhs
+        fun prove_has_constr ((cbind, (ctag, _)), ts) =
           let
             val list = HOLogic.mk_list @{typ T} ts
             val goal = @{const has_constructor} $ lhs $ ctag $ list
             val prop = HOLogic.mk_Trueprop goal
-            val rules = @{thms has_constructor_simps}
+            val rules = ctag_defs @ @{thms has_constructor_simps}
             val tac1 = rtac @{thm has_constructor_intro} 1
             val tac2 = rtac unfold_thm 1
             val tac3 = simp_tac (HOL_ss addsimps rules) 1
@@ -236,7 +238,7 @@ fun gen_add_halicore_data
       let
         val t0 = Library.foldl mk_T_apply (tycon, map Free targs)
         val used = map fst targs
-        fun define_constr (((cbind, ctag), ts), has_constr_thm) lthy =
+        fun define_constr (((cbind, (ctag, _)), ts), has_constr_thm) lthy =
           let
             val x_names = Name.variant_list used (map (K "x") ts)
             val xs = map (fn x => Free (x, @{typ V})) x_names

@@ -146,17 +146,17 @@ halicore_data Maybe a = Nothing | Just "a"
 text "Case expression syntax for Maybe type"
 
 translations
-  "_hcon (XCONST Nothing)" => "''Nothing''"
-  "CONST Nothing" <= "_htag ''Nothing''"
-  "_hcon (XCONST Just)" => "''Just''"
-  "CONST Just" <= "_htag ''Just''"
+  "_hcon (XCONST Nothing)" => "CONST Nothing_tag"
+  "CONST Nothing" <= "_htag (CONST Nothing_tag)"
+  "_hcon (XCONST Just)" => "CONST Just_tag"
+  "CONST Just" <= "_htag (CONST Just_tag)"
 
 lemma Nothing_eq_Vcon:
-  fixes a :: "\<star>" shows "\<guillemotleft>Nothing @a\<guillemotright> = Vcon\<cdot>''Nothing''\<cdot>[]"
+  fixes a :: "\<star>" shows "\<guillemotleft>Nothing @a\<guillemotright> = Vcon\<cdot>Nothing_tag\<cdot>[]"
 by (simp add: Nothing_def T_beta)
 
 lemma Just_eq_Vcon:
-  assumes "x ::: a" shows "\<guillemotleft>Just @a x\<guillemotright> = Vcon\<cdot>''Just''\<cdot>[x]"
+  assumes "x ::: a" shows "\<guillemotleft>Just @a x\<guillemotright> = Vcon\<cdot>Just_tag\<cdot>[x]"
 using assms by (simp add: Just_def T_beta V_beta type_rule)
 
 lemma Maybe_cases:
@@ -181,8 +181,8 @@ lemma case_Maybe:
   "x ::: a \<Longrightarrow> \<guillemotleft>case (t) (Just @a x) of w {Nothing \<rightarrow> \<lbrace>f w\<rbrace>; \<lbrace>m w\<rbrace>}\<guillemotright> = \<guillemotleft>case (t) (Just @a x) of w {\<lbrace>m w\<rbrace>}\<guillemotright>"
   "\<lbrakk>\<And>w. cont (\<lambda>y. g w y); x ::: a\<rbrakk> \<Longrightarrow> \<guillemotleft>case (t) (Just @a x) of w {Just (y::a) \<rightarrow> \<lbrace>g w y\<rbrace>; \<lbrace>m w\<rbrace>}\<guillemotright> = g \<guillemotleft>Just @a x\<guillemotright> x"
 apply (simp add: Nothing_eq_Vcon cases_match_eq B_rep_branch0)
-apply (simp add: Nothing_eq_Vcon cases_match_neq)
-apply (simp add: Just_eq_Vcon cases_match_neq)
+apply (simp add: Nothing_eq_Vcon cases_match_neq Nothing_tag_def Just_tag_def)
+apply (simp add: Just_eq_Vcon cases_match_neq Nothing_tag_def Just_tag_def)
 apply (simp add: Just_eq_Vcon cases_match_eq B_rep_branch0 B_rep_branchV)
 done
 
