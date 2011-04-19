@@ -30,7 +30,7 @@ USEDIR = $(ISABELLE_TOOL) usedir -b -g true -v true -i true -V outline=/proof,/M
 
 $(SESSION-NAME): $(LOG)/$(SESSION-NAME).gz
 
-$(LOG)/$(SESSION-NAME).gz: ROOT.ML *.thy document/*.tex
+$(LOG)/$(SESSION-NAME).gz: *.ML *.thy document/*.tex
 	$(USEDIR) $(BASE-IMAGE) $(SESSION-NAME)
 
 
