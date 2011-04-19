@@ -143,14 +143,6 @@ subsection "Maybe datatype"
 
 halicore_data Maybe a = Nothing | Just "a"
 
-text "Case expression syntax for Maybe type"
-
-translations
-  "_hcon (XCONST Nothing)" => "CONST Nothing_tag"
-  "CONST Nothing" <= "_htag (CONST Nothing_tag)"
-  "_hcon (XCONST Just)" => "CONST Just_tag"
-  "CONST Just" <= "_htag (CONST Just_tag)"
-
 lemma Nothing_eq_Vcon:
   fixes a :: "\<star>" shows "\<guillemotleft>Nothing @a\<guillemotright> = Vcon\<cdot>Nothing_tag\<cdot>[]"
 by (simp add: Nothing_def T_beta)

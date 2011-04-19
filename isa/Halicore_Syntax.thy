@@ -210,6 +210,58 @@ translations
   "_hwild r" => "CONST allmatch r"
   "_hmquote (_hwild (_hunquote r))" <= "CONST allmatch r"
 
+subsection {* Parsing and printing of pattern match constructor tags *}
+
+ML {*
+structure Halicore_Tags = Generic_Data
+( 
+  type T = string Symtab.table * string Symtab.table
+  val empty = (Symtab.empty, Symtab.empty)
+  val extend = I
+  fun merge ((a1,b1),(a2,b2)) =
+    (Symtab.merge (op =) (a1,a2), Symtab.merge (op =) (b1,b2))
+)
+*}
+
+parse_ast_translation (advanced) {*
+let
+  fun hcon_ast_tr ctxt [Syntax.Variable c] =
+    let
+      val (tab, _) = Halicore_Tags.get (Context.Proof ctxt)
+      val thy = ProofContext.theory_of ctxt
+      val con = Sign.intern_const thy c
+      val tag =
+        case Symtab.lookup tab con of
+          SOME x => x
+        | NONE => error ("Not a Halicore data constructor: " ^ con)
+    in
+      Syntax.Constant (Syntax.mark_const tag)
+    end
+    | hcon_ast_tr ctxt _ = raise Match
+in
+  [("_hcon", hcon_ast_tr)]
+end
+*}
+
+print_ast_translation (advanced) {*
+let
+  fun htag_ast_tr' ctxt [Syntax.Constant tag] =
+    let
+      val (_, tab) = Halicore_Tags.get (Context.Proof ctxt)
+      val thy = ProofContext.theory_of ctxt
+      val con =
+        case Symtab.lookup tab (Syntax.unmark_const tag) of
+          SOME x => x
+        | NONE => raise Match
+    in
+      Syntax.Constant (Syntax.mark_const con)
+    end
+    | htag_ast_tr' ctxt _ = raise Match
+in
+  [("_htag", htag_ast_tr')]
+end
+*}
+
 subsection {* Examples *}
 
 term "\<langle>forall a. a \<rightarrow> a\<rangle>"

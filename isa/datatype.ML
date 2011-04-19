@@ -276,6 +276,19 @@ fun gen_add_halicore_data
       |> fold_map define_constrs
         (((tycons ~~ targss) ~~ rhss') ~~ map snd has_constr_thms)
 
+    (* Register tags for constructor constants *)
+    fun add_tag (cbind, _) context =
+      let
+        val full = Sign.full_name (Context.theory_of context)
+        val con = full cbind
+        val tag = full (Binding.suffix_name "_tag" cbind)
+        fun upd (tab1, tab2) =
+          (Symtab.update (con, tag) tab1, Symtab.update (tag, con) tab2)
+      in
+        Halicore_Tags.map upd context
+      end
+    val lthy = Local_Theory.map_contexts (fold (fold add_tag) rhss) lthy
+
     val info = ()
   in
     (info, lthy)
