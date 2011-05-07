@@ -1,4 +1,4 @@
 GHC := ghc
 
 %.hcr : %.hs
-	$(GHC) -fforce-recomp -fext-core -c $<
+	$(GHC) -O0 -fforce-recomp -fext-core -c $<

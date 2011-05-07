@@ -23,4 +23,5 @@ executable core-to-isabelle
 executable ShallowTest 
     hs-source-dirs:      isa
     main-is:             ShallowTest.hs
-    build-depends:       extcore == 1.*
+    build-depends:       extcore == 1.*,
+                         filepath == 1.2.*
