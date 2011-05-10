@@ -100,24 +100,24 @@ fun typecheck_thm ctxt rules : term -> thm =
     (* builds theorem for value of type V *)
     fun check net e =
       case e of
-        Const (@{const_name V_app}, _) $ e1 $ e2 =>
+        Const (@{const_name Vapp}, _) $ e1 $ e2 =>
           let
             val thm1 = check net e1
             val thm2 = check net e2
           in
-            @{thm has_type_V_app} OF [thm1, thm2]
+            @{thm has_type_Vapp} OF [thm1, thm2]
           end
-      | Const (@{const_name T_app}, _) $ e $ t =>
+      | Const (@{const_name Vtapp}, _) $ e $ t =>
           let
             val tinsts = [SOME (certT (fastype_of t))]
             val insts = [NONE, NONE, SOME (cert t)]
-            val rule = Drule.instantiate' tinsts insts @{thm has_type_T_app}
+            val rule = Drule.instantiate' tinsts insts @{thm has_type_Vtapp}
             val thm1 = check net e
             val thm2 = rule OF [thm1]
           in
             solve_cont_prem thm2
           end
-      | Const (@{const_name V_lam}, _) $ t $ f =>
+      | Const (@{const_name Vlam}, _) $ t $ f =>
           let
             val (x, e) = dest_Abs f
             val cprop = cert (HOLogic.mk_Trueprop (@{const has_type} $ x $ t))
@@ -125,20 +125,20 @@ fun typecheck_thm ctxt rules : term -> thm =
             val thm1 = check net' e
             val thm2 = Thm.implies_intr cprop thm1
             val thm3 = Thm.forall_intr (cert x) thm2
-            val thm4 = Drule.compose_single (thm3, 2, @{thm has_type_V_lam})
+            val thm4 = Drule.compose_single (thm3, 2, @{thm has_type_Vlam})
           in
             solve_cont_prem thm4
           end
-      | Const (@{const_name T_lam}, _) $ f =>
+      | Const (@{const_name Vtlam}, _) $ f =>
           let
             val (a, e) = dest_Abs f
             val thm0 = check net e
             val thm1 = Thm.forall_intr (cert a) thm0
-            val thm2 = Drule.compose_single (thm1, 3, @{thm has_type_T_lam})
+            val thm2 = Drule.compose_single (thm1, 3, @{thm has_type_Vtlam})
           in
             solve_cont_prem (solve_cont_prem thm2)
           end
-      | Const (@{const_name cases}, _) $ u $ e $ f =>
+      | Const (@{const_name Vcase}, _) $ u $ e $ f =>
           let
             val (w, m) = dest_Abs f
             val thm0 = check net e
@@ -148,7 +148,7 @@ fun typecheck_thm ctxt rules : term -> thm =
             val thm1 = check_m net' m (cert t) (cert u)
             val thm2 = Thm.implies_intr cprop thm1
             val thm3 = Thm.forall_intr (cert w) thm2
-            val thm4 = thm0 RS @{thm has_type_cases}
+            val thm4 = thm0 RS @{thm has_type_Vcase}
             val thm5 = Drule.compose_single (thm3, 1, thm4)
           in thm5 end
       | e => hd (Item_Net.retrieve net e)
@@ -156,20 +156,20 @@ fun typecheck_thm ctxt rules : term -> thm =
     (* builds theorem for value of type M *)
     and check_m net m t u =
       case m of
-        Const (@{const_name endmatch'}, _) =>
-          Drule.instantiate' [] [SOME t, SOME u] @{thm M_type_endmatch}
-      | Const (@{const_name allmatch}, _) $ e =>
+        Const (@{const_name Mnone}, _) =>
+          Drule.instantiate' [] [SOME t, SOME u] @{thm M_type_Mnone}
+      | Const (@{const_name Mwild}, _) $ e =>
           let
             val thm0 = check net e
             val insts = [NONE, SOME u, SOME t]
-            val thm1 = Drule.instantiate' [] insts @{thm M_type_allmatch}
+            val thm1 = Drule.instantiate' [] insts @{thm M_type_Mwild}
           in
             thm0 RS thm1
           end
-      | Const (@{const_name match}, _) $ s $ b $ m =>
+      | Const (@{const_name Mbranch}, _) $ s $ b $ m =>
           let
             val insts = [SOME t, NONE, NONE, NONE, SOME u]
-            val rule = Drule.instantiate' [] insts @{thm M_type_match}
+            val rule = Drule.instantiate' [] insts @{thm M_type_Mbranch}
             val thm1 = hd (Item_Net.retrieve con_rules s)
             (* TODO: better error message if this fails *)
             val thm2 = check_b net b
@@ -181,9 +181,9 @@ fun typecheck_thm ctxt rules : term -> thm =
     (* builds theorem for value of type B *)
     and check_b net b =
       case b of
-        Const (@{const_name branch0}, _) $ e =>
-          (check net e) RS @{thm B_type_branch0}
-      | Const (@{const_name branchV}, _) $ t $ f =>
+        Const (@{const_name Bnone}, _) $ e =>
+          (check net e) RS @{thm B_type_Bnone}
+      | Const (@{const_name Bval}, _) $ t $ f =>
           let
             val (x, b) = dest_Abs f
             val cprop = cert (HOLogic.mk_Trueprop (@{const has_type} $ x $ t))
@@ -191,7 +191,7 @@ fun typecheck_thm ctxt rules : term -> thm =
             val thm1 = check_b net' b
             val thm2 = Thm.implies_intr cprop thm1
             val thm3 = Thm.forall_intr (cert x) thm2
-            val thm4 = Drule.compose_single (thm3, 2, @{thm B_type_branchV})
+            val thm4 = Drule.compose_single (thm3, 2, @{thm B_type_Bval})
           in
             solve_cont_prem thm4
           end

@@ -73,13 +73,13 @@ end
 
 text "Application of types to types:"
 
-definition T_apply :: "('a::kind \<rightarrow> 'b::kind) \<Rightarrow> 'a \<Rightarrow> 'b"
-  where "T_apply = Rep_cfun"
+definition Tapp :: "('a::kind \<rightarrow> 'b::kind) \<Rightarrow> 'a \<Rightarrow> 'b"
+  where "Tapp = Rep_cfun"
 
-lemma cont_T_apply [simp, cont2cont]:
+lemma cont_Tapp [simp, cont2cont]:
   assumes "cont (\<lambda>x. t x)" and "cont (\<lambda>x. u x)"
-  shows "cont (\<lambda>x. T_apply (t x) (u x))"
-using assms unfolding T_apply_def by (rule cont2cont_APP)
+  shows "cont (\<lambda>x. Tapp (t x) (u x))"
+using assms unfolding Tapp_def by (rule cont2cont_APP)
 
 
 subsection {* Lambda calculus *}
@@ -99,15 +99,15 @@ using assms unfolding has_type_def by metis
 
 subsubsection {* Function types and value application *}
 
-definition funT :: "T \<rightarrow> T \<rightarrow> T"
-  where "funT = (\<Lambda> a b. T_abs\<cdot>(defl_fun2 (\<Lambda>(up\<cdot>f). Vfun\<cdot>f) (\<Lambda>(Vfun\<cdot>f). up\<cdot>f)
+definition Tfun :: "T \<rightarrow> T \<rightarrow> T"
+  where "Tfun = (\<Lambda> a b. T_abs\<cdot>(defl_fun2 (\<Lambda>(up\<cdot>f). Vfun\<cdot>f) (\<Lambda>(Vfun\<cdot>f). up\<cdot>f)
     (\<Lambda> d e. u_map\<cdot>(cfun_map\<cdot>d\<cdot>e))\<cdot>(T_rep\<cdot>a)\<cdot>(T_rep\<cdot>b)))"
 
-lemma cast_T_rep_funT:
-  "cast\<cdot>(T_rep\<cdot>(T_apply (T_apply funT a) b)) = fup\<cdot>Vfun oo
+lemma cast_T_rep_Tfun:
+  "cast\<cdot>(T_rep\<cdot>(Tapp (Tapp Tfun a) b)) = fup\<cdot>Vfun oo
     u_map\<cdot>(cfun_map\<cdot>(cast\<cdot>(T_rep\<cdot>a))\<cdot>(cast\<cdot>(T_rep\<cdot>b))) oo
     V_case\<cdot>\<bottom>\<cdot>\<bottom>\<cdot>up\<cdot>\<bottom>\<cdot>\<bottom>"
-apply (simp add: funT_def T_apply_def)
+apply (simp add: Tfun_def Tapp_def)
 apply (subst cast_defl_fun2)
 apply (rule ep_pair.intro)
 apply (case_tac x, simp, simp)
@@ -116,39 +116,39 @@ apply (simp add: finite_deflation_u_map finite_deflation_cfun_map)
 apply (simp add: eta_cfun)
 done
 
-definition V_app :: "V \<Rightarrow> V \<Rightarrow> V"
-  where "V_app v x = (case v of Vint\<cdot>n \<Rightarrow> Wrong | Vcon\<cdot>s\<cdot>xs \<Rightarrow> Wrong |
+definition Vapp :: "V \<Rightarrow> V \<Rightarrow> V"
+  where "Vapp v x = (case v of Vint\<cdot>n \<Rightarrow> Wrong | Vcon\<cdot>s\<cdot>xs \<Rightarrow> Wrong |
     Vfun\<cdot>f \<Rightarrow> f\<cdot>x | Vtfun\<cdot>f \<Rightarrow> Wrong | Wrong \<Rightarrow> Wrong)"
 
-definition V_lam :: "T \<Rightarrow> (V \<Rightarrow> V) \<Rightarrow> V"
-  where "V_lam t f = Vfun\<cdot>(\<Lambda> x. f (cast\<cdot>(T_rep\<cdot>t)\<cdot>x))"
+definition Vlam :: "T \<Rightarrow> (V \<Rightarrow> V) \<Rightarrow> V"
+  where "Vlam t f = Vfun\<cdot>(\<Lambda> x. f (cast\<cdot>(T_rep\<cdot>t)\<cdot>x))"
 
-lemma cont_V_app [simp, cont2cont]:
+lemma cont_Vapp [simp, cont2cont]:
   assumes u: "cont (\<lambda>x. u x)" and v: "cont (\<lambda>x. v x)"
-  shows "cont (\<lambda>x. V_app (u x) (v x))"
-unfolding V_app_def
+  shows "cont (\<lambda>x. Vapp (u x) (v x))"
+unfolding Vapp_def
 by (simp add: cont_compose [OF u] cont_compose [OF v])
 
-lemma cont_V_lam [simp, cont2cont]:
+lemma cont_Vlam [simp, cont2cont]:
   assumes t: "cont (\<lambda>x. t x)"
   assumes f: "cont (\<lambda>p. f (fst p) (snd p))"
-  shows "cont (\<lambda>x. V_lam (t x) (\<lambda>y. f x y))"
+  shows "cont (\<lambda>x. Vlam (t x) (\<lambda>y. f x y))"
 proof -
   have 1: "\<And>y. cont (\<lambda>x. f x y)" and 2: "\<And>x. cont (\<lambda>y. f x y)"
     using assms unfolding prod_cont_iff by simp_all
   show ?thesis
-    unfolding V_lam_def
+    unfolding Vlam_def
     apply (rule cont_apply [OF t])
     apply (simp_all add: cont2cont_LAM cont_compose [OF 1] cont_compose [OF 2])
     done
 qed
 
-lemma has_type_V_lam:
+lemma has_type_Vlam:
   assumes 1: "cont f"
   assumes 2: "\<And>x. x ::: a \<Longrightarrow> f x ::: b"
-  shows "V_lam a (\<lambda>x. f x) ::: T_apply (T_apply funT a) b"
-apply (simp add: has_type_def cast_T_rep_funT)
-apply (simp add: V_lam_def)
+  shows "Vlam a (\<lambda>x. f x) ::: Tapp (Tapp Tfun a) b"
+apply (simp add: has_type_def cast_T_rep_Tfun)
+apply (simp add: Vlam_def)
 apply (rule cfun_eqI, simp add: cont_compose [OF 1])
 apply (rule has_type_def [THEN iffD1])
 apply (rule 2)
@@ -156,23 +156,23 @@ apply (rule has_type_def [THEN iffD2])
 apply simp
 done
 
-lemma has_type_V_app:
-  assumes f: "f ::: T_apply (T_apply funT a) b"
+lemma has_type_Vapp:
+  assumes f: "f ::: Tapp (Tapp Tfun a) b"
   assumes x: "x ::: a"
-  shows "V_app f x ::: b"
+  shows "Vapp f x ::: b"
 apply (rule has_type_elim [OF f], rename_tac f')
 apply (rule has_type_elim [OF x], rename_tac x')
 apply (rule has_type_def [THEN iffD2])
-apply (simp add: V_app_def)
-apply (simp add: cast_T_rep_funT)
+apply (simp add: Vapp_def)
+apply (simp add: cast_T_rep_Tfun)
 apply (case_tac f', simp_all)
 done
 
-lemma V_beta:
+lemma Vapp_Vlam:
   assumes f: "cont f"
   assumes x: "y ::: t"
-  shows "V_app (V_lam t f) y = f y"
-unfolding V_app_def V_lam_def
+  shows "Vapp (Vlam t f) y = f y"
+unfolding Vapp_def Vlam_def
 apply (simp add: cont_compose [OF f])
 apply (rule has_type_elim [OF x], simp)
 done
@@ -180,51 +180,51 @@ done
 
 subsection {* Forall-types and type application *}
 
-definition T_lam :: "('k::kind \<Rightarrow> V) \<Rightarrow> V"
-  where "T_lam f = Vtfun\<cdot>(\<Lambda> u. f (of_U\<cdot>u))"
+definition Vtlam :: "('k::kind \<Rightarrow> V) \<Rightarrow> V"
+  where "Vtlam f = Vtfun\<cdot>(\<Lambda> u. f (of_U\<cdot>u))"
 
-definition T_app :: "V \<Rightarrow> 'k::kind \<Rightarrow> V"
-  where "T_app v t = (case v of Vint\<cdot>n \<Rightarrow> Wrong | Vcon\<cdot>s\<cdot>xs \<Rightarrow> Wrong |
+definition Vtapp :: "V \<Rightarrow> 'k::kind \<Rightarrow> V"
+  where "Vtapp v t = (case v of Vint\<cdot>n \<Rightarrow> Wrong | Vcon\<cdot>s\<cdot>xs \<Rightarrow> Wrong |
     Vfun\<cdot>f \<Rightarrow> Wrong | Vtfun\<cdot>f \<Rightarrow> f\<cdot>(to_U\<cdot>t) | Wrong \<Rightarrow> Wrong)"
 
-lemma cont_T_app [simp, cont2cont]:
+lemma cont_Vtapp [simp, cont2cont]:
   assumes v: "cont (\<lambda>x. v x)"
   assumes t: "cont (\<lambda>x. t x)"
-  shows "cont (\<lambda>x. T_app (v x) (t x))"
-unfolding T_app_def by (simp add: v cont_compose [OF t])
+  shows "cont (\<lambda>x. Vtapp (v x) (t x))"
+unfolding Vtapp_def by (simp add: v cont_compose [OF t])
 
-lemma cont_T_lam [simp, cont2cont]:
+lemma cont_Vtlam [simp, cont2cont]:
   assumes "cont (\<lambda>p. f (fst p) (snd p))"
-  shows "cont (\<lambda>x. T_lam (\<lambda>a. f x a))"
+  shows "cont (\<lambda>x. Vtlam (\<lambda>a. f x a))"
 proof -
   have 1: "\<And>y. cont (\<lambda>x. f x y)" and 2: "\<And>x. cont (\<lambda>y. f x y)"
     using assms unfolding prod_cont_iff by simp_all
   show ?thesis
-    unfolding T_lam_def
+    unfolding Vtlam_def
     by (simp add: cont2cont_LAM cont_compose [OF 1] cont_compose [OF 2])
 qed
 
-definition forallT :: "('k::kind \<Rightarrow> T) \<Rightarrow> T"
-  where "forallT h = T_abs\<cdot>(defl_fun1 (fup\<cdot>Vtfun) (V_case\<cdot>\<bottom>\<cdot>\<bottom>\<cdot>\<bottom>\<cdot>up\<cdot>\<bottom>) u_map\<cdot>
+definition Tforall :: "('k::kind \<Rightarrow> T) \<Rightarrow> T"
+  where "Tforall h = T_abs\<cdot>(defl_fun1 (fup\<cdot>Vtfun) (V_case\<cdot>\<bottom>\<cdot>\<bottom>\<cdot>\<bottom>\<cdot>up\<cdot>\<bottom>) u_map\<cdot>
     (pi_defl\<cdot>ID_defl\<cdot>(\<Lambda> u. T_rep\<cdot>(h (of_U\<cdot>u)))))"
 
-lemma cont_forallT [simp, cont2cont]:
+lemma cont_Tforall [simp, cont2cont]:
   assumes f: "cont (\<lambda>p. f (fst p) (snd p))"
-  shows "cont (\<lambda>x. forallT (\<lambda>a. f x a))"
+  shows "cont (\<lambda>x. Tforall (\<lambda>a. f x a))"
 proof -
   have 1: "\<And>y. cont (\<lambda>x. f x y)" and 2: "\<And>x. cont (\<lambda>y. f x y)"
     using assms unfolding prod_cont_iff by simp_all
   show ?thesis
-    unfolding forallT_def
+    unfolding Tforall_def
     by (simp_all add: cont2cont_LAM cont_compose [OF 1] cont_compose [OF 2])
 qed
 
-lemma cast_T_rep_forallT:
+lemma cast_T_rep_Tforall:
   assumes h: "cont (h::'k::kind \<Rightarrow> T)"
-  shows "cast\<cdot>(T_rep\<cdot>(forallT h)) = fup\<cdot>Vtfun oo
+  shows "cast\<cdot>(T_rep\<cdot>(Tforall h)) = fup\<cdot>Vtfun oo
     u_map\<cdot>(\<Lambda> f x. cast\<cdot>(T_rep\<cdot>(h (of_U\<cdot>x)))\<cdot>(f\<cdot>x)) oo
     V_case\<cdot>\<bottom>\<cdot>\<bottom>\<cdot>\<bottom>\<cdot>up\<cdot>\<bottom>"
-unfolding forallT_def T.abs_iso
+unfolding Tforall_def T.abs_iso
 apply (subst cast_defl_fun1)
 apply (rule ep_pair.intro)
 apply (case_tac x, simp, simp)
@@ -235,33 +235,33 @@ apply (subst cast_pi_defl)
 apply (simp add: h [THEN cont_compose])
 done
 
-lemma has_type_T_lam:
+lemma has_type_Vtlam:
   assumes 1: "cont f"
   assumes 2: "cont h"
   assumes 3: "\<And>a. f a ::: h a"
-  shows "T_lam f ::: forallT (\<lambda>a. h a)"
-apply (simp add: has_type_def cast_T_rep_forallT [OF 2])
-apply (simp add: T_lam_def)
+  shows "Vtlam f ::: Tforall (\<lambda>a. h a)"
+apply (simp add: has_type_def cast_T_rep_Tforall [OF 2])
+apply (simp add: Vtlam_def)
 apply (rule cfun_eqI, simp add: cont_compose [OF 1] cont_compose [OF 2])
 apply (rule has_type_def [THEN iffD1])
 apply (rule 3)
 done
 
-lemma has_type_T_app:
-  assumes f: "f ::: forallT h"
+lemma has_type_Vtapp:
+  assumes f: "f ::: Tforall h"
   assumes h: "cont h"
-  shows "T_app f a ::: h a"
+  shows "Vtapp f a ::: h a"
 apply (rule has_type_elim [OF f], rename_tac f')
 apply (rule has_type_def [THEN iffD2])
-apply (simp add: T_app_def)
-apply (simp add: cast_T_rep_forallT [OF h])
+apply (simp add: Vtapp_def)
+apply (simp add: cast_T_rep_Tforall [OF h])
 apply (case_tac f', simp_all add: cont_compose [OF h])
 done
 
-lemma T_beta:
+lemma Vtapp_Vtlam:
   assumes h: "cont (\<lambda>a. h a)"
-  shows "T_app (T_lam (\<lambda>a. h a)) t = h t"
-unfolding T_app_def T_lam_def
+  shows "Vtapp (Vtlam (\<lambda>a. h a)) t = h t"
+unfolding Vtapp_def Vtlam_def
 by (simp add: cont_compose [OF h])
 
 
@@ -412,39 +412,39 @@ domain_isomorphism B = "V list \<rightarrow> V"
 definition B_type :: "B \<Rightarrow> T list \<Rightarrow> T \<Rightarrow> bool"
   where "B_type b ts u \<longleftrightarrow> (\<forall>xs. have_types xs ts \<longrightarrow> B_rep\<cdot>b\<cdot>xs ::: u)"
 
-definition branch0 :: "V \<Rightarrow> B"
-  where "branch0 v = B_abs\<cdot>(\<Lambda> xs. case xs of [] \<Rightarrow> v | y # ys \<Rightarrow> Wrong)"
+definition Bnone :: "V \<Rightarrow> B"
+  where "Bnone v = B_abs\<cdot>(\<Lambda> xs. case xs of [] \<Rightarrow> v | y # ys \<Rightarrow> Wrong)"
 
-definition branchV :: "T \<Rightarrow> (V \<Rightarrow> B) \<Rightarrow> B"
-  where "branchV t f = B_abs\<cdot>(\<Lambda> xs. case xs of [] \<Rightarrow> Wrong |
+definition Bval :: "T \<Rightarrow> (V \<Rightarrow> B) \<Rightarrow> B"
+  where "Bval t f = B_abs\<cdot>(\<Lambda> xs. case xs of [] \<Rightarrow> Wrong |
     y # ys \<Rightarrow> B_rep\<cdot>(f (cast\<cdot>(T_rep\<cdot>t)\<cdot>y))\<cdot>ys)"
 
 text {* Both branch combinators satisfy rewrite rules. *}
 
-lemma B_rep_branch0: "B_rep\<cdot>(branch0 v)\<cdot>[] = v"
-by (simp add: branch0_def B.abs_iso)
+lemma B_rep_Bnone: "B_rep\<cdot>(Bnone v)\<cdot>[] = v"
+by (simp add: Bnone_def B.abs_iso)
 
-lemma B_rep_branchV:
+lemma B_rep_Bval:
   assumes f: "cont f" and x: "x ::: t"
-  shows "B_rep\<cdot>(branchV t f)\<cdot>(x # xs) = B_rep\<cdot>(f x)\<cdot>xs"
-unfolding branchV_def B.abs_iso
+  shows "B_rep\<cdot>(Bval t f)\<cdot>(x # xs) = B_rep\<cdot>(f x)\<cdot>xs"
+unfolding Bval_def B.abs_iso
 by (simp add: cont_compose [OF f] x [unfolded has_type_def])
 
 text {* Both branch combinators are continuous. *}
 
-theorem cont_branch0 [simp, cont2cont]:
-  assumes "cont f" shows "cont (\<lambda>x. branch0 (f x))"
-using assms unfolding branch0_def
+theorem cont_Bnone [simp, cont2cont]:
+  assumes "cont f" shows "cont (\<lambda>x. Bnone (f x))"
+using assms unfolding Bnone_def
 by (simp add: cont2cont_LAM)
 
-theorem cont_branchV [simp, cont2cont]:
+theorem cont_Bval [simp, cont2cont]:
   assumes "cont t" and "cont (\<lambda>p. f (fst p) (snd p))"
-  shows "cont (\<lambda>x. branchV (t x) (\<lambda>y. f x y))"
+  shows "cont (\<lambda>x. Bval (t x) (\<lambda>y. f x y))"
 proof -
   have 1: "\<And>y. cont (\<lambda>x. f x y)" and 2: "\<And>x. cont (\<lambda>y. f x y)"
     using assms unfolding prod_cont_iff by simp_all
   show ?thesis
-    unfolding branchV_def
+    unfolding Bval_def
     apply (rule cont_apply [OF assms(1)])
     apply (simp_all add: cont2cont_LAM cont_compose [OF 1] cont_compose [OF 2])
     done
@@ -452,19 +452,19 @@ qed
 
 text {* Both branch combinators obey typing rules. *}
 
-lemma B_type_branch0: "y ::: u \<Longrightarrow> B_type (branch0 y) [] u"
+lemma B_type_Bnone: "y ::: u \<Longrightarrow> B_type (Bnone y) [] u"
 unfolding B_type_def
 apply (clarify elim!: have_types_elims)
-apply (simp add: B_rep_branch0)
+apply (simp add: B_rep_Bnone)
 done
 
-lemma B_type_branchV:
+lemma B_type_Bval:
   assumes "cont (\<lambda>x. b x)"
   assumes "\<And>x. x ::: t \<Longrightarrow> B_type (b x) ts u"
-  shows "B_type (branchV t (\<lambda>x. b x)) (t # ts) u"
+  shows "B_type (Bval t (\<lambda>x. b x)) (t # ts) u"
 using assms unfolding B_type_def
 apply (clarify elim!: have_types_elims)
-apply (simp add: B_rep_branchV)
+apply (simp add: B_rep_Bval)
 done
 
 subsubsection {* Blocks of case branches *}
@@ -482,32 +482,32 @@ domain_isomorphism M = "V \<rightarrow>! V"
 definition M_type :: "M \<Rightarrow> T \<Rightarrow> T \<Rightarrow> bool"
   where "M_type m t u \<longleftrightarrow> (\<forall>x. x ::: t \<longrightarrow> sfun_rep\<cdot>(M_rep\<cdot>m)\<cdot>x ::: u)"
 
-definition allmatch :: "V \<Rightarrow> M"
-  where "allmatch v = M_abs\<cdot>(sfun_abs\<cdot>(\<Lambda> x. v))"
+definition Mwild :: "V \<Rightarrow> M"
+  where "Mwild v = M_abs\<cdot>(sfun_abs\<cdot>(\<Lambda> x. v))"
 
-definition endmatch :: "M"
-  where "endmatch = allmatch Wrong"
+text {* Defining this to return @{text Wrong} would more accurately
+reflect the run-time behavior, but using @{text "\<bottom>"} makes it easier
+to prove typing rules. *}
 
-definition endmatch' :: "M"
-  where "endmatch' = allmatch \<bottom>"
-  -- "less correct, but easier to prove typing rules about"
+definition Mnone :: "M"
+  where "Mnone = Mwild \<bottom>"
 
-definition match :: "string \<Rightarrow> B \<Rightarrow> M \<Rightarrow> M"
-  where "match s b m = M_abs\<cdot>(sfun_abs\<cdot>(\<Lambda> x. case x of
+definition Mbranch :: "string \<Rightarrow> B \<Rightarrow> M \<Rightarrow> M"
+  where "Mbranch s b m = M_abs\<cdot>(sfun_abs\<cdot>(\<Lambda> x. case x of
     Vint\<cdot>n \<Rightarrow> Wrong |
     Vcon\<cdot>s'\<cdot>xs \<Rightarrow> if s = s' then B_rep\<cdot>b\<cdot>xs else sfun_rep\<cdot>(M_rep\<cdot>m)\<cdot>x |
     Vfun\<cdot>f \<Rightarrow> Wrong | Vtfun\<cdot>f \<Rightarrow> Wrong | Wrong \<Rightarrow> Wrong))"
 
 text {* All match combinators are continuous. *}
 
-lemma cont_allmatch [simp, cont2cont]:
-  assumes "cont f" shows "cont (\<lambda>x. allmatch (f x))"
-unfolding allmatch_def by (simp add: cont_compose [OF assms])
+lemma cont_Mwild [simp, cont2cont]:
+  assumes "cont f" shows "cont (\<lambda>x. Mwild (f x))"
+unfolding Mwild_def by (simp add: cont_compose [OF assms])
 
-lemma cont_match [simp, cont2cont]:
+lemma cont_Mbranch [simp, cont2cont]:
   assumes "cont b" and "cont m"
-  shows "cont (\<lambda>x. match s (b x) (m x))"
-unfolding match_def
+  shows "cont (\<lambda>x. Mbranch s (b x) (m x))"
+unfolding Mbranch_def
 by (intro cont2cont assms [THEN cont_compose])
 
 text {* All match combinators obey typing rules *}
@@ -516,16 +516,16 @@ lemma has_constructor_intro:
   "\<lbrakk>t = datatype ds; lookup_defls\<cdot>ds\<cdot>s = defls\<cdot>ts\<rbrakk> \<Longrightarrow> has_constructor t s ts"
 unfolding has_constructor_def by auto
 
-lemma M_type_match:
+lemma M_type_Mbranch:
   assumes 1: "has_constructor t s ts"
   assumes 2: "B_type b ts u"
   assumes 3: "M_type m t u"
-  shows "M_type (match s b m) t u"
+  shows "M_type (Mbranch s b m) t u"
 using assms
 apply -
 apply (clarsimp simp add: M_type_def)
 apply (drule spec, drule (1) mp)
-apply (simp add: match_def M.abs_iso strictify_cancel)
+apply (simp add: Mbranch_def M.abs_iso strictify_cancel)
 apply (clarsimp simp add: has_constructor_def)
 apply (simp only: has_type_def)
 apply (simp only: has_type_def [where t=u, symmetric])
@@ -538,32 +538,32 @@ apply (case_tac "cast\<cdot>(defls\<cdot>ts)\<cdot>(up\<cdot>list2)", simp_all)
 apply (simp add: have_types_iff)
 done
 
-lemma M_type_allmatch:
+lemma M_type_Mwild:
   assumes "x ::: u"
-  shows "M_type (allmatch x) t u"
-using assms unfolding M_type_def allmatch_def
+  shows "M_type (Mwild x) t u"
+using assms unfolding M_type_def Mwild_def
 by (simp add: M.abs_iso strictify_conv_if has_type_bottom)
 
-lemma M_type_endmatch:
-  shows "M_type endmatch' t u"
-unfolding endmatch'_def
-by (intro M_type_allmatch has_type_bottom)
+lemma M_type_Mnone:
+  shows "M_type Mnone t u"
+unfolding Mnone_def
+by (intro M_type_Mwild has_type_bottom)
 
 subsubsection {* Full case expressions *}
 
-definition cases :: "T \<Rightarrow> V \<Rightarrow> (V \<Rightarrow> M) \<Rightarrow> V"
-  where "cases t v m = sfun_rep\<cdot>(M_rep\<cdot>(m v))\<cdot>v"
+definition Vcase :: "T \<Rightarrow> V \<Rightarrow> (V \<Rightarrow> M) \<Rightarrow> V"
+  where "Vcase t v m = sfun_rep\<cdot>(M_rep\<cdot>(m v))\<cdot>v"
 
 text {* The case expression combinator is continuous. *}
 
-lemma cont_cases [simp, cont2cont]:
+lemma cont_Vcase [simp, cont2cont]:
   assumes "cont v" and "cont (\<lambda>p. m (fst p) (snd p))"
-  shows "cont (\<lambda>x. cases (t x) (v x) (\<lambda>w. m x w))"
+  shows "cont (\<lambda>x. Vcase (t x) (v x) (\<lambda>w. m x w))"
 proof -
   have 1: "\<And>y. cont (\<lambda>x. m x y)" and 2: "\<And>x. cont (\<lambda>y. m x y)"
     using assms unfolding prod_cont_iff by simp_all
   show ?thesis
-    unfolding cases_def
+    unfolding Vcase_def
     apply (rule cont_apply [OF assms(1)])
     apply (simp_all add: cont_compose [OF 1] cont_compose [OF 2])
     done
@@ -571,36 +571,36 @@ qed
 
 text {* The case expression combinator obeys a typing rule. *}
 
-lemma has_type_cases:
+lemma has_type_Vcase:
   assumes x: "x ::: t"
   assumes m: "\<And>w. w ::: t \<Longrightarrow> M_type (m w) t u"
-  shows "cases u x (\<lambda>w. m w) ::: u"
-using assms unfolding cases_def M_type_def by simp
+  shows "Vcase u x (\<lambda>w. m w) ::: u"
+using assms unfolding Vcase_def M_type_def by simp
 
 text {* Case expressions satisfy some basic rewrite rules. *}
 
-theorem cases_allmatch:
+theorem Vcase_Mwild:
   assumes f: "cont f" and x: "x \<noteq> \<bottom>"
-  shows "cases t x (\<lambda>w. allmatch (f w)) = f x"
-by (simp add: cases_def allmatch_def M.abs_iso x)
+  shows "Vcase t x (\<lambda>w. Mwild (f w)) = f x"
+by (simp add: Vcase_def Mwild_def M.abs_iso x)
 
-theorem cases_Vcon_allmatch:
+theorem Vcase_Vcon_Mwild:
   assumes "cont f"
-  shows "cases t (Vcon\<cdot>s\<cdot>xs) (\<lambda>w. allmatch (f w)) = f (Vcon\<cdot>s\<cdot>xs)"
-using assms by (rule cases_allmatch) simp
+  shows "Vcase t (Vcon\<cdot>s\<cdot>xs) (\<lambda>w. Mwild (f w)) = f (Vcon\<cdot>s\<cdot>xs)"
+using assms by (rule Vcase_Mwild) simp
 
-theorem cases_V_lam_allmatch:
+theorem Vcase_Vlam_Mwild:
   assumes "cont f"
-  shows "cases t' (V_lam t g) (\<lambda>w. allmatch (f w)) = f (V_lam t g)"
-using assms by (rule cases_allmatch, simp add: V_lam_def)
+  shows "Vcase t' (Vlam t g) (\<lambda>w. Mwild (f w)) = f (Vlam t g)"
+using assms by (rule Vcase_Mwild, simp add: Vlam_def)
 
-theorem cases_match_neq:
-  "s \<noteq> s' \<Longrightarrow> cases t (Vcon\<cdot>s\<cdot>xs) (\<lambda>w. match s' (b w) (m w)) =
-    cases t (Vcon\<cdot>s\<cdot>xs) (\<lambda>w. m w)"
-by (simp add: cases_def match_def M.abs_iso)
+theorem Vcase_Mbranch_neq:
+  "s \<noteq> s' \<Longrightarrow> Vcase t (Vcon\<cdot>s\<cdot>xs) (\<lambda>w. Mbranch s' (b w) (m w)) =
+    Vcase t (Vcon\<cdot>s\<cdot>xs) (\<lambda>w. m w)"
+by (simp add: Vcase_def Mbranch_def M.abs_iso)
 
-lemma cases_match_eq:
-  "cases t (Vcon\<cdot>s\<cdot>xs) (\<lambda>w. match s (b w) (m w)) = B_rep\<cdot>(b (Vcon\<cdot>s\<cdot>xs))\<cdot>xs"
-by (simp add: cases_def match_def M.abs_iso)
+lemma Vcase_Mbranch_eq:
+  "Vcase t (Vcon\<cdot>s\<cdot>xs) (\<lambda>w. Mbranch s (b w) (m w)) = B_rep\<cdot>(b (Vcon\<cdot>s\<cdot>xs))\<cdot>xs"
+by (simp add: Vcase_def Mbranch_def M.abs_iso)
 
 end

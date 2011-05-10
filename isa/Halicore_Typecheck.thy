@@ -9,14 +9,14 @@ subsection {* Building theorems for type judgments *}
 
 lemmas type_cont_rules =
   cont_id cont_const cont2cont_fst cont2cont_snd
-  cont_T_apply cont_forallT
+  cont_Tapp cont_Tforall
 
 lemmas term_cont_rules =
   type_cont_rules
-  cont_V_app cont_V_lam
-  cont_T_app cont_T_lam
-  cont_cases cont_match cont_allmatch
-  cont_branch0 cont_branchV
+  cont_Vapp cont_Vlam
+  cont_Vtapp cont_Vtlam
+  cont_Vcase cont_Mbranch cont_Mwild
+  cont_Bnone cont_Bval
 
 use "typecheck.ML"
 

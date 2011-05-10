@@ -26,18 +26,18 @@ proves the following theorems:
 
 subsubsection {* Lemmas used with internal proofs *}
 
-lemma T_apply_eqI: "t = (\<Lambda> a. f a) \<Longrightarrow> cont f \<Longrightarrow> \<langle>t a\<rangle> = f a"
-unfolding T_apply_def by simp
+lemma Tapp_eqI: "t = (\<Lambda> a. f a) \<Longrightarrow> cont f \<Longrightarrow> \<langle>t a\<rangle> = f a"
+unfolding Tapp_def by simp
 
 lemmas has_constructor_simps =
   lookup_defls.simps fst_conv snd_conv refl if_True if_False
   list.simps(1-3) char.inject nibble.simps(1-240)
 
 lemmas has_type_constr_intros =
-  has_type_T_lam has_type_V_lam
+  has_type_Vtlam has_type_Vlam
   cont_id cont_const cont2cont_fst cont2cont_snd
   cont2cont_APP cont2cont_Cons
-  cont_T_apply cont_forallT cont_V_lam cont_T_lam
+  cont_Tapp cont_Tforall cont_Vlam cont_Vtlam
 
 subsubsection {* Loading the datatype package *}
 

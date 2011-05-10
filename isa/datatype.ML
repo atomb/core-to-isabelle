@@ -26,32 +26,32 @@ type info = unit
 val kstar = @{typ T}
 
 fun forall_const k =
-  Const (@{const_name forallT}, (k --> kstar) --> kstar)
+  Const (@{const_name Tforall}, (k --> kstar) --> kstar)
 
 fun mk_forall (a, t) =
   forall_const (fastype_of a) $ Term.lambda a t
 
-fun T_lam_const k =
-  Const (@{const_name T_lam}, (k --> @{typ V}) --> @{typ V})
+fun Vtlam_const k =
+  Const (@{const_name Vtlam}, (k --> @{typ V}) --> @{typ V})
 
-fun mk_T_lam (a, t) =
-  T_lam_const (fastype_of a) $ Term.lambda a t
+fun mk_Vtlam (a, t) =
+  Vtlam_const (fastype_of a) $ Term.lambda a t
 
-fun mk_V_lam ((x, t), e) =
-  @{const V_lam} $ t $ Term.lambda x e
+fun mk_Vlam ((x, t), e) =
+  @{const Vlam} $ t $ Term.lambda x e
 
-fun T_apply_const (S, T) =
-  Const(@{const_name T_apply}, HOLCF_Library.mk_cfunT (S, T) --> (S --> T))
+fun Tapp_const (S, T) =
+  Const(@{const_name Tapp}, HOLCF_Library.mk_cfunT (S, T) --> (S --> T))
 
-fun mk_T_apply (t, u) =
+fun mk_Tapp (t, u) =
   let val (S, T) =
     case fastype_of t of
         Type(@{type_name cfun}, [S, T]) => (S, T)
-      | _ => raise TERM ("mk_T_apply", [t, u])
-  in T_apply_const (S, T) $ t $ u end
+      | _ => raise TERM ("mk_Tapp", [t, u])
+  in Tapp_const (S, T) $ t $ u end
 
-fun mk_funT (t, u) =
-  mk_T_apply (mk_T_apply (@{const funT}, t), u)
+fun mk_Tfun (t, u) =
+  mk_Tapp (mk_Tapp (@{const Tfun}, t), u)
 
 fun dest_big_lambdas (Const (@{const_name Abs_cfun}, _) $ Abs (x, T, t)) =
   let
@@ -189,9 +189,9 @@ fun gen_add_halicore_data
         val concl = concl_of thm
         val (lhs, rhs) = HOLogic.dest_eq (HOLogic.dest_Trueprop concl)
         val (vs, rhs') = dest_big_lambdas rhs
-        val lhs' = Library.foldl mk_T_apply (lhs, map Free vs)
+        val lhs' = Library.foldl mk_Tapp (lhs, map Free vs)
         val prop = HOLogic.mk_Trueprop (HOLogic.mk_eq (lhs', rhs'))
-        val rule = Library.foldl (op RS) (thm, map (K @{thm T_apply_eqI}) vs)
+        val rule = Library.foldl (op RS) (thm, map (K @{thm Tapp_eqI}) vs)
         val rules = Cont2ContData.get lthy
         val tac = rtac rule 1 THEN REPEAT (match_tac rules 1)
       in
@@ -206,7 +206,7 @@ fun gen_add_halicore_data
     (* Prove has_constructor theorems *)
     fun prove_has_constrs ((tycon, targs), rhs) (tbind, unfold_thm) =
       let
-        val lhs = Library.foldl mk_T_apply (tycon, map Free targs)
+        val lhs = Library.foldl mk_Tapp (tycon, map Free targs)
         val xs = map fst targs
         val ctag_defs = map (snd o snd o fst) rhs
         fun prove_has_constr ((cbind, (ctag, _)), ts) =
@@ -236,7 +236,7 @@ fun gen_add_halicore_data
     (* Define data constructor constants *)
     fun define_constrs (((tycon, targs), rhs), has_constr_thms) lthy =
       let
-        val t0 = Library.foldl mk_T_apply (tycon, map Free targs)
+        val t0 = Library.foldl mk_Tapp (tycon, map Free targs)
         val used = map fst targs
         fun define_constr (((cbind, (ctag, _)), ts), has_constr_thm) lthy =
           let
@@ -244,12 +244,12 @@ fun gen_add_halicore_data
             val xs = map (fn x => Free (x, @{typ V})) x_names
             val e1 = HOLCF_Library.mk_capply (@{const Vcon}, ctag)
             val e2 = HOLCF_Library.mk_capply (e1, HOLogic.mk_list @{typ V} xs)
-            val e3 = Library.foldr mk_V_lam (xs ~~ ts, e2)
-            val e4 = Library.foldr mk_T_lam (map Free targs, e3)
+            val e3 = Library.foldr mk_Vlam (xs ~~ ts, e2)
+            val e4 = Library.foldr mk_Vtlam (map Free targs, e3)
             val ((constr, def_thm), lthy) = define (cbind, e4) lthy
 
             (* prove typing rule *)
-            val t1 = Library.foldr mk_funT (ts, t0)
+            val t1 = Library.foldr mk_Tfun (ts, t0)
             val t2 = Library.foldr mk_forall (map Free targs, t1)
             val goal = @{const has_type} $ constr $ t2
             val prop = HOLogic.mk_Trueprop goal
