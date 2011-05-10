@@ -284,6 +284,19 @@ in
 end
 *}
 
+subsection {* Let expressions *}
+
+syntax
+  "_hlet" :: "[id, htyp, hexp, hexp] \<Rightarrow> hexp"
+    ("let (_ :: _) = _/ in (_)" [0, 0, 0, 3] 3)
+
+translations -- "input"
+  "_hlet x t e r" => "CONST Vlet t e (_abs x r)"
+
+translations -- "output"
+  "_hquote (_hlet x (_hunquote t) (_hunquote e) (_hunquote r))"
+      <= "CONST Vlet t e (_abs x r)"
+
 subsection {* Examples *}
 
 term "\<langle>forall a. a \<rightarrow> a\<rangle>"
@@ -300,5 +313,6 @@ term "\<guillemotleft>\<lambda> @(m::(\<star> \<rightarrow> \<star>) \<rightarro
 term "\<guillemotleft>\<lambda> @a (x::a). f @a x\<guillemotright>"
 term "\<guillemotleft>case (t) v of w {_ \<rightarrow> g}\<guillemotright>"
 term "\<guillemotleft>case (t) v of w {\<lbrace>Foo\<rbrace> (x::a) \<rightarrow> f x}\<guillemotright>"
+term "\<guillemotleft>let x :: t = e in let y :: u = g x in f x y\<guillemotright>"
 
 end

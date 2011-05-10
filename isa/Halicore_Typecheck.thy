@@ -13,8 +13,8 @@ lemmas type_cont_rules =
 
 lemmas term_cont_rules =
   type_cont_rules
-  cont_Vapp cont_Vlam
-  cont_Vtapp cont_Vtlam
+  cont_Vapp cont_Vlam cont_Vtapp cont_Vtlam
+  cont_Vlet
   cont_Vcase cont_Mbranch cont_Mwild
   cont_Bnone cont_Bval
 

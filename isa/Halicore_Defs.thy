@@ -603,4 +603,47 @@ lemma Vcase_Mbranch_eq:
   "Vcase t (Vcon\<cdot>s\<cdot>xs) (\<lambda>w. Mbranch s (b w) (m w)) = B_rep\<cdot>(b (Vcon\<cdot>s\<cdot>xs))\<cdot>xs"
 by (simp add: Vcase_def Mbranch_def M.abs_iso)
 
+
+subsection {* Let expressions *}
+
+subsection {* Non-recursive let expressions *}
+
+definition Vlet :: "T \<Rightarrow> V \<Rightarrow> (V \<Rightarrow> V) \<Rightarrow> V"
+  where "Vlet t e f = f (cast\<cdot>(T_rep\<cdot>t)\<cdot>e)"
+
+lemma cont_Vlet [simp, cont2cont]:
+  assumes t: "cont (\<lambda>x. t x)"
+  assumes e: "cont (\<lambda>x. e x)"
+  assumes f: "cont (\<lambda>p. f (fst p) (snd p))"
+  shows "cont (\<lambda>x. Vlet (t x) (e x) (\<lambda>y. f x y))"
+proof -
+  have 1: "\<And>y. cont (\<lambda>x. f x y)" and 2: "\<And>x. cont (\<lambda>y. f x y)"
+    using assms unfolding prod_cont_iff by simp_all
+  show ?thesis
+    unfolding Vlet_def
+    apply (rule cont_apply [OF t])
+    apply (simp add: cont_compose [OF 2])
+    apply (rule cont_apply [OF e])
+    apply (simp add: cont_compose [OF 2])
+    apply (rule 1)
+    done
+qed
+
+lemma has_type_Vlet:
+  assumes e: "has_type e t"
+  assumes f: "\<And>x. has_type x t \<Longrightarrow> has_type (f x) t'"
+  shows "has_type (Vlet t e (\<lambda>x. f x)) t'"
+using e f by (simp add: Vlet_def has_type_def)
+
+lemma Vlet_cong:
+  assumes e: "e = e'"
+  assumes f: "\<And>x. x ::: t \<Longrightarrow> f x = f' x"
+  shows "Vlet t e (\<lambda>x. f x) = Vlet t e' (\<lambda>x. f' x)"
+using e f by (simp add: Vlet_def has_type_def)
+
+lemma Vlet_unfold:
+  assumes "has_type e t"
+  shows "Vlet t e f = f e"
+using assms by (simp add: Vlet_def has_type_def)
+
 end

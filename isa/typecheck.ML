@@ -148,9 +148,23 @@ fun typecheck_thm ctxt rules : term -> thm =
             val thm1 = check_m net' m (cert t) (cert u)
             val thm2 = Thm.implies_intr cprop thm1
             val thm3 = Thm.forall_intr (cert w) thm2
-            val thm4 = thm0 RS @{thm has_type_Vcase}
-            val thm5 = Drule.compose_single (thm3, 1, thm4)
-          in thm5 end
+            val thm4 = thm3 COMP (thm0 RS @{thm has_type_Vcase})
+          in
+            thm4
+          end
+      | Const (@{const_name Vlet}, _) $ t $ e1 $ f =>
+          let
+            val (x, e2) = dest_Abs f
+            val cprop = cert (HOLogic.mk_Trueprop (@{const has_type} $ x $ t))
+            val net' = Item_Net.update (Thm.assume cprop) net
+            val thm1 = check net e1
+            val thm2 = check net' e2
+            val thm3 = Thm.implies_intr cprop thm2
+            val thm4 = Thm.forall_intr (cert x) thm3
+            val thm5 = thm4 COMP (thm1 RS @{thm has_type_Vlet})
+          in
+            thm5
+          end
       | e => hd (Item_Net.retrieve net e)
         (* TODO: better error message than exception Empty if this fails *)
     (* builds theorem for value of type M *)
