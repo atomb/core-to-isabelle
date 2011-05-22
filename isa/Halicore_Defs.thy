@@ -314,21 +314,21 @@ fixrec lookup_defls :: "(string \<times> T list) list \<rightarrow> string \<rig
 lemma lookup_defls_Nil: "lookup_defls\<cdot>[]\<cdot>s = \<bottom>"
 by fixrec_simp
 
-definition "datatype" :: "(string \<times> T list) list \<Rightarrow> T"
-  where "datatype xs =
+definition Tdata :: "(string \<times> T list) list \<Rightarrow> T"
+  where "Tdata xs =
   T_abs\<cdot>
   (defl_fun1 (\<Lambda>(:up\<cdot>s, up\<cdot>vs:). Vcon\<cdot>s\<cdot>vs) (\<Lambda>(Vcon\<cdot>s\<cdot>vs). (:up\<cdot>s, up\<cdot>vs:)) ID\<cdot>
   (sprod_of_prod_defl\<cdot>
   (sig_defl\<cdot>ID_defl\<cdot>(\<Lambda>(up\<cdot>s). lookup_defls\<cdot>xs\<cdot>s))))"
 
-lemma cont_datatype [THEN cont_compose, simp, cont2cont]:
-  "cont (\<lambda>xs. datatype xs)"
-unfolding datatype_def by simp
+lemma cont_Tdata [THEN cont_compose, simp, cont2cont]:
+  "cont (\<lambda>xs. Tdata xs)"
+unfolding Tdata_def by simp
 
-lemma cast_datatype:
-  "cast\<cdot>(T_rep\<cdot>(datatype xs)) = (\<Lambda>(Vcon\<cdot>s\<cdot>vs). ssplit\<cdot>(\<Lambda> (up\<cdot>s).
+lemma cast_Tdata:
+  "cast\<cdot>(T_rep\<cdot>(Tdata xs)) = (\<Lambda>(Vcon\<cdot>s\<cdot>vs). ssplit\<cdot>(\<Lambda> (up\<cdot>s).
     fup\<cdot>(Vcon\<cdot>s))\<cdot>(:up\<cdot>s, cast\<cdot>(lookup_defls\<cdot>xs\<cdot>s)\<cdot>(up\<cdot>vs):))"
-unfolding datatype_def T.abs_iso
+unfolding Tdata_def T.abs_iso
 apply (subst cast_defl_fun1)
 apply (rule ep_pair.intro)
 apply (case_tac x, simp, rename_tac a b)
@@ -362,16 +362,16 @@ apply (case_tac "cast\<cdot>(defls\<cdot>ts)\<cdot>(up\<cdot>list)", simp, simp)
 apply (simp add: has_type_def)
 done
 
-lemma has_type_datatype_Nil_elim:
-  assumes "x ::: datatype []" obtains "x = \<bottom>"
-using assms unfolding has_type_def cast_datatype
+lemma has_type_Tdata_Nil_elim:
+  assumes "x ::: Tdata []" obtains "x = \<bottom>"
+using assms unfolding has_type_def cast_Tdata
 by (cases x, simp_all add: lookup_defls_Nil)
 
-lemma has_type_datatype_Cons_elim:
-  assumes "x ::: datatype ((s, ts) # ds)"
+lemma has_type_Tdata_Cons_elim:
+  assumes "x ::: Tdata ((s, ts) # ds)"
   obtains vs where "x = Vcon\<cdot>s\<cdot>vs" and "have_types vs ts"
-  | "x ::: datatype ds"
-using assms unfolding has_type_def cast_datatype
+  | "x ::: Tdata ds"
+using assms unfolding has_type_def cast_Tdata
 apply (cases x, simp_all, rename_tac s' xs)
 apply (case_tac "s = s'", simp_all)
 apply (case_tac "cast\<cdot>(defls\<cdot>ts)\<cdot>(up\<cdot>xs)", simp, simp)
@@ -382,21 +382,21 @@ inductive_cases have_types_elims:
   "have_types vs []"
   "have_types vs (t # ts)"
 
-lemmas has_type_datatype_elims =
+lemmas has_type_Tdata_elims =
   have_types_elims
-  has_type_datatype_Cons_elim
-  has_type_datatype_Nil_elim
+  has_type_Tdata_Cons_elim
+  has_type_Tdata_Nil_elim
 
 definition has_constructor :: "T \<Rightarrow> string \<Rightarrow> T list \<Rightarrow> bool"
   where "has_constructor t s ts \<longleftrightarrow>
-    (\<exists>ds. t = datatype ds \<and> lookup_defls\<cdot>ds\<cdot>s = defls\<cdot>ts)"
+    (\<exists>ds. t = Tdata ds \<and> lookup_defls\<cdot>ds\<cdot>s = defls\<cdot>ts)"
 
 lemma has_type_Vcon:
   assumes t: "has_constructor t s ts"
   assumes xs: "have_types xs ts"
   shows "Vcon\<cdot>s\<cdot>xs ::: t"
 using assms unfolding has_constructor_def
-by (auto simp add: has_type_def cast_datatype have_types_iff)
+by (auto simp add: has_type_def cast_Tdata have_types_iff)
 
 
 subsection {* Case expressions *}
@@ -513,7 +513,7 @@ by (intro cont2cont assms [THEN cont_compose])
 text {* All match combinators obey typing rules *}
 
 lemma has_constructor_intro:
-  "\<lbrakk>t = datatype ds; lookup_defls\<cdot>ds\<cdot>s = defls\<cdot>ts\<rbrakk> \<Longrightarrow> has_constructor t s ts"
+  "\<lbrakk>t = Tdata ds; lookup_defls\<cdot>ds\<cdot>s = defls\<cdot>ts\<rbrakk> \<Longrightarrow> has_constructor t s ts"
 unfolding has_constructor_def by auto
 
 lemma M_type_Mbranch:
@@ -529,7 +529,7 @@ apply (simp add: Mbranch_def M.abs_iso strictify_cancel)
 apply (clarsimp simp add: has_constructor_def)
 apply (simp only: has_type_def)
 apply (simp only: has_type_def [where t=u, symmetric])
-apply (simp add: cast_datatype)
+apply (simp add: cast_Tdata)
 apply (case_tac x, simp_all)
 apply clarsimp
 apply (simp add: B_type_def)

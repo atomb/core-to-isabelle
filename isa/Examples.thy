@@ -161,7 +161,7 @@ lemma Maybe_cases:
   | x where "x ::: a" and "y = \<guillemotleft>Just @a x\<guillemotright>"
 using assms unfolding Maybe_unfold
 apply (simp add: Nothing_eq_Vcon Just_eq_Vcon)
-apply (auto elim!: has_type_datatype_elims)
+apply (auto elim!: has_type_Tdata_elims)
 done
 
 lemma Vcase_bottom: "Vcase t \<bottom> f = \<bottom>"

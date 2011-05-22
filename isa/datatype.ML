@@ -135,7 +135,7 @@ fun gen_add_halicore_data
       let
         fun one_constr ((cbind, (ctag, ctag_def)), ts) =
           HOLogic.mk_prod (ctag, HOLogic.mk_list @{typ T} ts)
-        val body = @{const "datatype"} $
+        val body = @{const "Tdata"} $
           HOLogic.mk_list @{typ "string * T list"} (map one_constr constrs)
       in
         HOLCF_Library.big_lambdas (map Free targs) body
