@@ -160,18 +160,6 @@ lemma tdef_kind_tdef_subst:
   "tdef_kind (tdef_subst i d x) = tdef_kind d"
 by (induct d arbitrary: i x, simp_all)
 
-lemma mapsto_unskip:
-  "n \<noteq> i \<Longrightarrow> mapsto (shift \<Gamma> i k') n k \<Longrightarrow> mapsto \<Gamma> (unskip i n) k"
-apply (induct \<Gamma> arbitrary: i n)
-apply (case_tac i)
-apply (case_tac n, simp, simp add: shift_0)
-apply (simp add: shift_Nil_Suc)
-apply (case_tac i)
-apply (case_tac n, simp, simp add: shift_0 unskip_0_Suc)
-apply (simp add: shift_Cons_Suc)
-apply (case_tac n, simp add: unskip_i_0, simp add: unskip_Suc_Suc)
-done
-
 lemma
   shows has_kind_ty_subst [OF _ refl]:
     "\<lbrakk>has_kind \<Gamma>' t k; \<Gamma>' = shift \<Gamma> i k'; has_kind \<Gamma> x k'\<rbrakk>
@@ -181,11 +169,10 @@ lemma
       \<Longrightarrow> tdef_ok \<Gamma> (tdef_subst i d x) k"
 apply (induct arbitrary: \<Gamma> i x and \<Gamma> i x set: has_kind tdef_ok, simp_all)
 txt "TyVar"
-apply (case_tac "n = i")
-apply (simp add: mapsto_shift_eq substVar_eq)
-apply (simp add: substVar_neq)
-apply (rule has_kind_TyVar)
-apply (erule (1) mapsto_unskip)
+apply (rule_tac x=n and i=i in skip_cases)
+apply (simp add: mapsto_shift_eq)
+apply (simp add: mapsto_shift_skip)
+apply (erule has_kind_TyVar)
 txt "TyBase"
 apply (rule has_kind_TyBase)
 txt "TyAll"
@@ -354,24 +341,8 @@ lemma ty_ax_TyRec':
     \<Longrightarrow> ty_ax \<Gamma> t d' k"
 by (simp add: ty_ax_TyRec)
 
-lemma substVar_Suc_0: "substVar \<sigma> (Suc i) x 0 = \<sigma> 0"
-by (simp add: substVar_def unskip_i_0)
-
-lemma substVar_Suc_Suc:
-  "substVar \<sigma> (Suc i) x (Suc n) = substVar (\<sigma> \<circ> Suc) i x n"
-by (simp add: substVar_def unskip_Suc_Suc)
-
-lemma substVar_0_0: "substVar \<sigma> 0 x 0 = x"
-by (simp add: substVar_def)
-
-lemmas subst_simps =
-  skip_Suc_0 skip_Suc_Suc
-  substVar_0_0
-  substVar_Suc_0
-  substVar_Suc_Suc
-
 lemma ty_subst_List: "ty_subst i List x = List"
-unfolding List_def by (simp add: subst_simps)
+unfolding List_def by simp
 
 lemma ty_eq_MyList:
   assumes "has_kind \<Gamma> a KStar"
@@ -380,7 +351,7 @@ apply (rule ty_eq_axiom)
 apply (rule ty_ax_TyApp' [OF assms])
 apply (rule ty_ax_TyRec' [OF has_kind_MyList MyList_def])
 apply simp
-apply (simp add: ty_subst_List subst_simps)
+apply (simp add: ty_subst_List)
 done
 
 text {*
@@ -412,7 +383,7 @@ apply (rule ty_eq_axiom)
 apply (rule ty_ax_TyApp' [OF assms])
 apply (rule ty_ax_TyRec' [OF has_kind_Forest' Forest'_def])
 apply simp
-apply (simp add: List_def Tree'_def Either_def subst_simps)
+apply (simp add: List_def Tree'_def Either_def)
 done
 
 lemma ty_eq_Tree':
@@ -422,9 +393,7 @@ apply (rule ty_eq_axiom)
 apply (rule ty_ax_TyApp' [OF assms])
 apply (rule ty_ax_TyRec' [OF has_kind_Tree' Tree'_def])
 apply simp
-apply (simp add: List_def Forest'_def Tree'_def Either_def subst_simps)
+apply (simp add: List_def Forest'_def Tree'_def Either_def)
 done
-
-unused_thms
 
 end

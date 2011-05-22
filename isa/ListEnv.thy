@@ -60,9 +60,9 @@ by simp
 
 lemma mapsto_shift_skip: "mapsto (A{i:=x}) (skip i n) y = mapsto A n y"
 apply (induct A arbitrary: i n)
-apply (case_tac i, simp add: skip_0, simp)
-apply (case_tac i, simp add: skip_0)
-apply (case_tac n, simp add: skip_Suc_0, simp add: skip_Suc_Suc)
+apply (case_tac i, simp, simp)
+apply (case_tac i, simp)
+apply (case_tac n, simp, simp)
 done
 
 lemma shift_shift_le:

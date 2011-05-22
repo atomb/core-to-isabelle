@@ -101,15 +101,9 @@ done
 declare cont_ty_denote [THEN cont_compose, simp, cont2cont]
 declare cont_tdef_denote [THEN cont_compose, simp, cont2cont]
 
-lemma substVar_nat_case_Suc:
-  "substVar (nat_case u \<sigma>) (Suc i) x = nat_case u (substVar \<sigma> i x)"
-apply (rule ext, rename_tac n)
-apply (case_tac n)
-apply (simp add: substVar_def unskip_i_0)
-apply (simp add: substVar_def unskip_Suc_Suc)
-done
-
-lemmas nat_case_substVar = substVar_nat_case_Suc [symmetric]
+lemma nat_case_substVar [simp]:
+  "nat_case u (substVar \<sigma> i x) = substVar (nat_case u \<sigma>) (Suc i) x"
+by (rule ext, rename_tac n, case_tac n, simp_all)
 
 lemma
   shows ty_denote_ty_lift:
@@ -120,23 +114,11 @@ lemma
     "cons_denote (substVar \<sigma> i y) (cons_lift i tss) = cons_denote \<sigma> tss"
   and args_denote_args_lift:
     "args_denote (substVar \<sigma> i y) (args_lift i ts) = args_denote \<sigma> ts"
-apply (induct t and d and tss and ts arbitrary: \<sigma> i and \<sigma> i and \<sigma> i and \<sigma> i)
-apply (simp add: substVar_skip) (* TyVar *)
-apply simp (* TyBase *)
-apply simp (* TyApp *)
-apply (simp add: nat_case_substVar) (* TyAll *)
-apply (simp add: nat_case_substVar) (* TyRec *)
-apply (simp add: nat_case_substVar) (* TyLam *)
-apply simp (* TyNew *)
-apply simp (* TyData *)
-apply simp (* [] *)
-apply simp (* ts # tss *)
-apply simp (* [] *)
-apply simp (* t # ts *)
-done
+by (induct t and d and tss and ts arbitrary: \<sigma> i and \<sigma> i and \<sigma> i and \<sigma> i)
+  simp_all
 
 lemma substVar_0: "substVar \<sigma> 0 x = nat_case x \<sigma>"
-by (rule ext, simp add: substVar_def unskip_def split: nat.split)
+by (rule ext, rename_tac n, case_tac n, simp_all)
 
 lemma LAM_eqI: "(\<And>x. f x = g x) \<Longrightarrow> (\<Lambda> x. f x) = (\<Lambda> y. g y)"
 by simp (* TODO: put in library *)
@@ -160,13 +142,10 @@ apply (simp add: substVar_def) (* TyVar *)
 apply simp (* TyBase *)
 apply simp (* TyApp *)
 txt "TyAll"
-apply (simp add: substVar_nat_case_Suc)
 apply (simp add: ty_denote_ty_lift [where i=0, unfolded substVar_0])
 txt "TyRec"
-apply (simp add: substVar_nat_case_Suc)
 apply (simp add: ty_denote_ty_lift [where i=0, unfolded substVar_0])
 txt "TyLam"
-apply (simp add: substVar_nat_case_Suc)
 apply (simp add: ty_denote_ty_lift [where i=0, unfolded substVar_0])
 apply simp (* TyNew *)
 apply simp (* TyData *)
