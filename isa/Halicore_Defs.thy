@@ -646,4 +646,141 @@ lemma Vlet_unfold:
   shows "Vlet t e f = f e"
 using assms by (simp add: Vlet_def has_type_def)
 
+subsection {* Recursive let expressions *}
+
+text {* Domain @{text W} represents arbitrary-sized, unboxed tuples of
+values. *}
+
+domain_isomorphism W = "V \<times> W"
+
+primrec W_type :: "W \<Rightarrow> T list \<Rightarrow> bool"
+  where "W_type w [] \<longleftrightarrow> w = \<bottom>"
+  | "W_type w (t # ts) \<longleftrightarrow>
+    has_type (fst (W_rep\<cdot>w)) t \<and> W_type (snd (W_rep\<cdot>w)) ts"
+
+definition Wcons :: "V \<Rightarrow> W \<Rightarrow> W"
+  where "Wcons v w = W_abs\<cdot>(v, w)"
+
+definition Wnil :: "W"
+  where "Wnil = \<bottom>"
+
+text {* Domain @{text R} represents the a recursive let expression: It
+is a function that takes the values of the left-hand sides, and
+returns the values of the right-hand sides along with the value of the
+body. *}
+
+domain_isomorphism R = "W \<rightarrow> W \<times> V"
+
+definition R_type :: "R \<Rightarrow> T list \<Rightarrow> T list \<Rightarrow> T \<Rightarrow> bool"
+  where "R_type r ts1 ts2 t \<longleftrightarrow>
+    (\<forall>w. W_type w ts1 \<longrightarrow>
+      W_type (fst (R_rep\<cdot>r\<cdot>w)) ts2 \<and> has_type (snd (R_rep\<cdot>r\<cdot>w)) t)"
+
+definition Rval :: "T \<Rightarrow> (V \<Rightarrow> R) \<Rightarrow> R"
+  where "Rval t f =
+    R_abs\<cdot>(\<Lambda> w. case W_rep\<cdot>w of (x, y) \<Rightarrow> R_rep\<cdot>(f (cast\<cdot>(T_rep\<cdot>t)\<cdot>x))\<cdot>y)"
+
+definition Rnil :: "W \<Rightarrow> V \<Rightarrow> R"
+  where "Rnil w v = R_abs\<cdot>(\<Lambda> _. (w, v))"
+
+definition Tletrec :: "R \<Rightarrow> V"
+  where "Tletrec r = snd (R_rep\<cdot>r\<cdot>(\<mu> w. fst (R_rep\<cdot>r\<cdot>w)))"
+
+text {* All combinators satisfy typing rules. *}
+
+lemma adm_W_type: "adm (\<lambda>w. W_type w ts)"
+apply (induct ts, simp_all)
+apply (rule adm_conj, simp add: has_type_def)
+apply (erule adm_subst [COMP swap_prems_rl], simp)
+done
+
+lemma W_rep_bottom [simp]: "W_rep\<cdot>\<bottom> = \<bottom>"
+by (rule retraction_strict, rule allI, rule W.abs_iso)
+
+lemma W_type_bottom: "W_type \<bottom> ts"
+by (induct ts, simp_all add: has_type_bottom)
+
+lemma W_type_Wnil: "W_type Wnil ts"
+unfolding Wnil_def by (rule W_type_bottom)
+
+lemma W_type_Wcons:
+  "\<lbrakk>has_type v t; W_type w ts\<rbrakk> \<Longrightarrow> W_type (Wcons v w) (t # ts)"
+unfolding Wcons_def by (simp add: W.abs_iso)
+
+lemma R_type_Rval:
+  assumes [THEN cont_compose, simp]: "cont (\<lambda>x. f x)"
+  assumes type: "\<And>x. has_type x t \<Longrightarrow> R_type (f x) ts1 ts2 t'"
+  shows "R_type (Rval t (\<lambda>x. f x)) (t # ts1) ts2 t'"
+using type unfolding R_type_def
+apply clarsimp
+apply (case_tac "W_rep\<cdot>w", simp)
+apply (simp add: R_type_def Rval_def R.abs_iso has_type_def)
+done
+
+lemma R_type_Rnil:
+  assumes "W_type w ts" and "has_type v t"
+  shows "R_type (Rnil w v) [] ts t"
+using assms unfolding R_type_def Rnil_def
+by (simp add: R.abs_iso)
+
+lemma has_type_Tletrec:
+  assumes "R_type r ts ts t"
+  shows "has_type (Tletrec r) t"
+proof -
+  note r = assms [unfolded R_type_def, rule_format]
+  let ?w = "\<mu> w. fst (R_rep\<cdot>r\<cdot>w)"
+  let ?f = "R_rep\<cdot>r"
+  have "W_type ?w ts"
+    apply (rule fix_ind)
+    apply (rule adm_W_type)
+    apply (rule W_type_bottom)
+    apply (drule r, simp)
+    done
+  thus "has_type (Tletrec r) t"
+    unfolding Tletrec_def
+    by (rule r [THEN conjunct2])
+qed
+
+text {* All combinators are continuous. *}
+
+lemma cont_Wcons [simp, cont2cont]:
+  "\<lbrakk>cont (\<lambda>x. v x); cont (\<lambda>x. w x)\<rbrakk> \<Longrightarrow> cont (\<lambda>x. Wcons (v x) (w x))"
+unfolding Wcons_def by simp
+
+lemma cont_Rnil [simp, cont2cont]:
+  "\<lbrakk>cont (\<lambda>x. w x); cont (\<lambda>x. v x)\<rbrakk> \<Longrightarrow> cont (\<lambda>x. Rnil (w x) (v x))"
+unfolding Rnil_def by (simp add: cont2cont_LAM)
+
+lemma cont_Rval [simp, cont2cont]:
+  assumes "cont t" and "cont (\<lambda>p. f (fst p) (snd p))"
+  shows "cont (\<lambda>x. Rval (t x) (\<lambda>y. f x y))"
+proof -
+  have 1: "\<And>y. cont (\<lambda>x. f x y)" and 2: "\<And>x. cont (\<lambda>y. f x y)"
+    using assms unfolding prod_cont_iff by simp_all
+  show ?thesis
+    unfolding Rval_def
+    apply (rule cont_apply [OF assms(1)])
+    apply (simp_all add: cont2cont_LAM cont_compose [OF 1] cont_compose [OF 2])
+    done
+qed
+
+lemma cont_Tletrec [simp, cont2cont]:
+  "cont (\<lambda>x. r x) \<Longrightarrow> cont (\<lambda>x. Tletrec (r x))"
+unfolding Tletrec_def by (simp add: cont2cont_LAM)
+
+text {* Example: *}
+
+lemma "has_type (Tletrec (Rval t1 (\<lambda>x. Rval t2 (\<lambda>y. Rval t3 (\<lambda>z. Rnil (Wcons x (Wcons y (Wcons z Wnil))) y))))) t2"
+apply (rule has_type_Tletrec)
+apply (rule R_type_Rval, simp)
+apply (rule R_type_Rval, simp)
+apply (rule R_type_Rval, simp)
+apply (rule R_type_Rnil)
+apply (rule W_type_Wcons, assumption)
+apply (rule W_type_Wcons, assumption)
+apply (rule W_type_Wcons, assumption)
+apply (rule W_type_Wnil)
+apply assumption
+done
+
 end
