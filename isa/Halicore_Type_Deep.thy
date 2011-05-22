@@ -49,7 +49,7 @@ by (induct xs, simp_all)
 inductive has_kind :: "kind list \<Rightarrow> ty \<Rightarrow> kind \<Rightarrow> bool"
   and tdef_ok :: "kind list \<Rightarrow> tdef \<Rightarrow> kind \<Rightarrow> bool"
 where has_kind_TyVar: "mapsto \<Gamma> n k \<Longrightarrow> has_kind \<Gamma> (TyVar n) k"
-  | has_kind_TyBase: "has_kind \<Gamma> (TyBase b) (base_kind b)"
+  | has_kind_TyBase: "base_kind b = k \<Longrightarrow> has_kind \<Gamma> (TyBase b) k"
   | has_kind_TyAll:
     "has_kind (k # \<Gamma>) t KStar \<Longrightarrow> has_kind \<Gamma> (TyAll k t) KStar"
   | has_kind_TyApp:
@@ -174,7 +174,7 @@ apply (simp add: mapsto_shift_eq)
 apply (simp add: mapsto_shift_skip)
 apply (erule has_kind_TyVar)
 txt "TyBase"
-apply (rule has_kind_TyBase)
+apply (erule has_kind_TyBase)
 txt "TyAll"
 apply (rule has_kind_TyAll)
 apply (simp add: has_kind_Cons_ty_lift_0 shift_Cons_Suc)
