@@ -29,37 +29,11 @@ end
 
 text {* Every kind is inhabited. *}
 
-primrec tdef_witness :: "kind \<Rightarrow> ty \<Rightarrow> tdef" where
-  "tdef_witness KStar t = TyNew t"
-| "tdef_witness (KArrow k1 k2) t =
-    TyLam k1 (tdef_witness k2 (TyApp (ty_lift 0 t) (TyVar 0)))"
-
 definition kind_witness :: "kind \<Rightarrow> ty" where
-  "kind_witness k = TyRec (tdef_witness k (TyVar 0))"
-
-lemma tdef_kind_tdef_witness:
-  "tdef_kind (tdef_witness k t) = k"
-by (induct k arbitrary: t, simp_all)
-
-lemma tdef_ok_tdef_witness:
-  "has_kind \<Delta> t k \<Longrightarrow> tdef_ok \<Delta> (tdef_witness k t) k"
-apply (induct k arbitrary: \<Delta> t, simp_all)
-apply (erule tdef_ok_TyNew)
-apply (rule tdef_ok_TyLam)
-apply (drule meta_spec, drule meta_spec, erule meta_mp)
-apply (rule has_kind_TyApp)
-apply (erule has_kind_Cons_ty_lift_0)
-apply (rule has_kind_TyVar)
-apply (rule mapsto_intros)
-done
+  "kind_witness k = TyRec k (TyVar 0)"
 
 lemma kind_witness: "has_kind \<Delta> (kind_witness k) k"
-unfolding kind_witness_def
-apply (rule has_kind_TyRec)
-apply (rule tdef_kind_tdef_witness)
-apply (rule tdef_ok_tdef_witness)
-apply (intro kind_rules)
-done
+unfolding kind_witness_def by (intro kind_rules)
 
 typedef (open) kstar = "{t. has_kind [] t KStar}"
   by (fast intro: kind_witness)
@@ -117,7 +91,6 @@ text {* The well-definedness of the unique choice depends on the
 injectivity of substitution. *}
 
 primrec ty_unsubst :: "nat \<Rightarrow> ty \<Rightarrow> ty \<Rightarrow> ty"
-  and tdef_unsubst :: "nat \<Rightarrow> tdef \<Rightarrow> tdef \<Rightarrow> tdef option"
   and cons_unsubst :: "nat \<Rightarrow> ty list list \<Rightarrow> ty list list \<Rightarrow> ty list list"
   and args_unsubst :: "nat \<Rightarrow> ty list \<Rightarrow> ty list \<Rightarrow> ty list"
 where "ty_unsubst i (TyVar n) t' = TyVar (skip i n)"
@@ -130,22 +103,22 @@ where "ty_unsubst i (TyVar n) t' = TyVar (skip i n)"
     (case t' of
       TyAll k' t1' \<Rightarrow> TyAll k (ty_unsubst (Suc i) t1 t1')
     | _ \<Rightarrow> TyVar i)"
-| "ty_unsubst i (TyRec d) t' =
+| "ty_unsubst i (TyLam k t1) t' =
     (case t' of
-      TyRec d' \<Rightarrow> option_case (TyVar i) TyRec (tdef_unsubst (Suc i) d d')
+      TyLam k' t1' \<Rightarrow> TyLam k (ty_unsubst (Suc i) t1 t1')
     | _ \<Rightarrow> TyVar i)"
-| "tdef_unsubst i (TyLam k d1) d' =
+| "ty_unsubst i (TyFix k t1) t' =
+    (case t' of
+      TyFix k' t1' \<Rightarrow> TyFix k (ty_unsubst (Suc i) t1 t1')
+    | _ \<Rightarrow> TyVar i)"
+| "ty_unsubst i (TyRec k t1) t' =
+    (case t' of
+      TyRec k' t1' \<Rightarrow> TyRec k (ty_unsubst (Suc i) t1 t1')
+    | _ \<Rightarrow> TyVar i)"
+| "ty_unsubst i (TyData s tss) d' =
     (case d' of
-      TyLam k' d1' \<Rightarrow> Option.map (TyLam k) (tdef_unsubst (Suc i) d1 d1')
-    | _ \<Rightarrow> None)"
-| "tdef_unsubst i (TyNew t) d' =
-    (case d' of
-      TyNew t' \<Rightarrow> Some (TyNew (ty_unsubst i t t'))
-    | _ \<Rightarrow> None)"
-| "tdef_unsubst i (TyData s tss) d' =
-    (case d' of
-      TyData s' tss' \<Rightarrow> Some (TyData s (cons_unsubst i tss tss'))
-    | _ \<Rightarrow> None)"
+      TyData s' tss' \<Rightarrow> TyData s (cons_unsubst i tss tss')
+    | _ \<Rightarrow> TyVar i)"
 | "cons_unsubst i [] tss' = []"
 | "cons_unsubst i (ts # tss) tss' =
     args_unsubst i ts (hd tss') # cons_unsubst i tss (tl tss')"
@@ -159,13 +132,11 @@ lemma
   assumes x_y [simp]: "\<And>i. ty_unsubst i x y = TyVar i"
   shows ty_unsubst:
     "ty_unsubst i (ty_subst i t x) (ty_subst i t y) = t"
-  and tdef_unsubst:
-    "tdef_unsubst i (tdef_subst i d x) (tdef_subst i d y) = Some d"
   and cons_unsubst:
     "cons_unsubst i (cons_subst i tss x) (cons_subst i tss y) = tss"
   and args_unsubst:
     "args_unsubst i (args_subst i ts x) (args_subst i ts y) = ts"
-apply (induct t and d and tss and ts arbitrary: i and i and i and i)
+apply (induct t and tss and ts arbitrary: i and i and i)
 apply (rule_tac x="nat" and i="i" in skip_cases)
 apply simp_all
 done
@@ -173,12 +144,9 @@ done
 lemma mapsto_iff: "mapsto xs i x \<longleftrightarrow> i < length xs \<and> xs ! i = x"
 by (induct xs arbitrary: i, simp, case_tac i, simp, simp)
 
-lemma
-  shows has_kind_implies_ty_lift_eq:
-    "\<lbrakk>has_kind \<Delta> t k; length \<Delta> \<le> i\<rbrakk> \<Longrightarrow> ty_lift i t = t"
-  and tdef_ok_implies_tdef_lift_eq:
-    "\<lbrakk>tdef_ok \<Delta> d k; length \<Delta> \<le> i\<rbrakk> \<Longrightarrow> tdef_lift i d = d"
-apply (induct arbitrary: i and i set: has_kind tdef_ok)
+lemma has_kind_implies_ty_lift_eq:
+  "\<lbrakk>has_kind \<Delta> t k; length \<Delta> \<le> i\<rbrakk> \<Longrightarrow> ty_lift i t = t"
+apply (induct arbitrary: i set: has_kind)
 apply (simp add: mapsto_iff skip_def)
 apply simp_all
 apply (erule rev_mp)
@@ -206,7 +174,7 @@ proof -
   have ty_lift_x: "ty_lift 0 ?x = ?x"
     by (rule has_kind_implies_ty_lift_eq [OF has_kind_x], simp)
   have has_kind_y: "has_kind [] ?y ?k"
-    by (rule has_kind_TyApp [OF kind_witness kind_witness])
+    by (rule has_kind.TyApp [OF kind_witness kind_witness])
   have ty_lift_y: "ty_lift 0 ?y = ?y"
     by (rule has_kind_implies_ty_lift_eq [OF has_kind_y], simp)
   have x_y: "\<And>i. ty_unsubst i ?x ?y = TyVar i"
@@ -250,7 +218,7 @@ definition Tapp :: "('a::kind, 'b::kind) kfun \<Rightarrow> 'a \<Rightarrow> 'b"
 lemma to_ty_Tapp: "to_ty (Tapp t u) = TyApp (to_ty t) (to_ty u)"
 unfolding Tapp_def
 apply (rule of_ty_inverse)
-apply (rule has_kind_TyApp)
+apply (rule has_kind.TyApp)
 apply (subst the_kind_kfun_def [symmetric])
 apply (rule has_kind_to_ty)
 apply (rule has_kind_to_ty)
@@ -262,7 +230,7 @@ definition Tfun :: "(kstar, (kstar, kstar) kfun) kfun"
 lemma to_ty_Tfun: "to_ty Tfun = TyBase TyFun"
 unfolding Tfun_def
 apply (rule of_ty_inverse)
-apply (rule has_kind_TyBase)
+apply (rule has_kind.TyBase)
 apply (simp add: the_kind_kfun_def the_kind_kstar_def)
 done
 
@@ -276,7 +244,7 @@ lemma to_ty_Tforall:
 unfolding Tforall_def
 apply (rule of_ty_inverse)
 apply (simp add: the_kind_kstar_def)
-apply (rule has_kind_TyAll)
+apply (rule has_kind.TyAll)
 apply (cut_tac ty_of_fun_correct [OF f])
 apply (simp add: fun_has_ty_def the_kind_kstar_def)
 done

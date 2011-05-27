@@ -17,12 +17,10 @@ datatype ty
   | TyBase base
   | TyApp ty ty
   | TyAll kind ty
-  | TyRec tdef
-and tdef
-  = TyLam kind tdef
-  | TyNew ty
+  | TyLam kind ty
+  | TyFix kind ty
+  | TyRec kind ty
   | TyData tag "ty list list"
-(* 7 seconds *)
 
 
 subsection {* Kinding relation *}
@@ -31,11 +29,6 @@ primrec base_kind :: "base \<Rightarrow> kind"
   where "base_kind TyFun = KArrow KStar (KArrow KStar KStar)"
   | "base_kind TyInt = KStar"
   | "base_kind TyChar = KStar"
-
-primrec tdef_kind :: "tdef \<Rightarrow> kind"
-  where "tdef_kind (TyLam k t) = KArrow k (tdef_kind t)"
-  | "tdef_kind (TyNew t) = KStar"
-  | "tdef_kind (TyData s tss) = KStar"
 
 lemma mapsto_intros:
   "mapsto (z # xs) 0 z"
@@ -47,57 +40,56 @@ lemma list_all_mono [mono]:
 by (induct xs, simp_all)
 
 inductive has_kind :: "kind list \<Rightarrow> ty \<Rightarrow> kind \<Rightarrow> bool"
-  and tdef_ok :: "kind list \<Rightarrow> tdef \<Rightarrow> kind \<Rightarrow> bool"
-where has_kind_TyVar: "mapsto \<Gamma> n k \<Longrightarrow> has_kind \<Gamma> (TyVar n) k"
-  | has_kind_TyBase: "base_kind b = k \<Longrightarrow> has_kind \<Gamma> (TyBase b) k"
-  | has_kind_TyAll:
-    "has_kind (k # \<Gamma>) t KStar \<Longrightarrow> has_kind \<Gamma> (TyAll k t) KStar"
-  | has_kind_TyApp:
+where TyVar: "mapsto \<Gamma> n k \<Longrightarrow> has_kind \<Gamma> (TyVar n) k"
+  | TyBase: "base_kind b = k \<Longrightarrow> has_kind \<Gamma> (TyBase b) k"
+  | TyApp:
     "\<lbrakk>has_kind \<Gamma> t1 (KArrow k1 k2); has_kind \<Gamma> t2 k1\<rbrakk>
       \<Longrightarrow> has_kind \<Gamma> (TyApp t1 t2) k2"
-  | has_kind_TyRec:
-    "\<lbrakk>tdef_kind d = k; tdef_ok (k # \<Gamma>) d k\<rbrakk>
-      \<Longrightarrow> has_kind \<Gamma> (TyRec d) k"
-  | tdef_ok_TyLam:
-    "tdef_ok (k1 # \<Gamma>) d k2 \<Longrightarrow> tdef_ok \<Gamma> (TyLam k1 d) (KArrow k1 k2)"
-  | tdef_ok_TyNew: "has_kind \<Gamma> t k \<Longrightarrow> tdef_ok \<Gamma> (TyNew t) k"
-  | tdef_ok_TyData: "list_all (list_all (\<lambda>t. has_kind \<Gamma> t KStar)) tss
-      \<Longrightarrow> tdef_ok \<Gamma> (TyData s tss) KStar"
+  | TyAll:
+    "has_kind (k # \<Gamma>) t KStar \<Longrightarrow> has_kind \<Gamma> (TyAll k t) KStar"
+  | TyLam:
+    "has_kind (k1 # \<Gamma>) t k2 \<Longrightarrow> has_kind \<Gamma> (TyLam k1 t) (KArrow k1 k2)"
+  | TyFix: "has_kind (k # \<Gamma>) t k \<Longrightarrow> has_kind \<Gamma> (TyFix k t) k"
+  | TyRec: "has_kind (k # \<Gamma>) t k \<Longrightarrow> has_kind \<Gamma> (TyRec k t) k"
+  | TyData: "list_all (list_all (\<lambda>t. has_kind \<Gamma> t KStar)) tss
+      \<Longrightarrow> has_kind \<Gamma> (TyData s tss) KStar"
+
+inductive_cases has_kind_elims:
+  "has_kind \<Delta> (TyVar n) k"
+  "has_kind \<Delta> (TyBase b) k"
+  "has_kind \<Delta> (TyApp t1 t2) k"
+  "has_kind \<Delta> (TyAll k1 t) k"
+  "has_kind \<Delta> (TyLam k1 t) k"
+  "has_kind \<Delta> (TyFix k1 t) k"
+  "has_kind \<Delta> (TyRec k1 t) k"
+  "has_kind \<Delta> (TyData s tss) k"
 
 lemma list_all_intros:
   "list_all P []"
   "P x \<Longrightarrow> list_all P xs \<Longrightarrow> list_all P (x # xs)"
 by simp_all
 
-lemma tdef_kind_intros:
-  "tdef_kind t = k' \<Longrightarrow> tdef_kind (TyLam k t) = KArrow k k'"
-  "tdef_kind (TyNew ty) = KStar"
-  "tdef_kind (TyData s tss) = KStar"
-by simp_all
-
 lemmas kind_rules =
-  has_kind_tdef_ok.intros
+  has_kind.intros
   mapsto_intros
   list_all_intros
-  tdef_kind_intros
 
 
 subsection {* Substitution *}
 
 primrec ty_lift :: "nat \<Rightarrow> ty \<Rightarrow> ty"
-  and tdef_lift :: "nat \<Rightarrow> tdef \<Rightarrow> tdef"
   and cons_lift :: "nat \<Rightarrow> ty list list \<Rightarrow> ty list list"
   and args_lift :: "nat \<Rightarrow> ty list \<Rightarrow> ty list"
   where "ty_lift i (TyVar n) = TyVar (skip i n)"
   | "ty_lift i (TyBase b) = TyBase b"
   | "ty_lift i (TyApp t1 t2) = TyApp (ty_lift i t1) (ty_lift i t2)"
   | "ty_lift i (TyAll k t) = TyAll k (ty_lift (Suc i) t)"
+  | "ty_lift i (TyLam k t) = TyLam k (ty_lift (Suc i) t)"
+  | "ty_lift i (TyFix k t) = TyFix k (ty_lift (Suc i) t)"
   | ty_lift_TyRec:
-    "ty_lift i (TyRec d) = TyRec (tdef_lift (Suc i) d)"
-  | "tdef_lift i (TyLam k d) = TyLam k (tdef_lift (Suc i) d)"
-  | "tdef_lift i (TyNew t) = TyNew (ty_lift i t)"
-  | tdef_lift_TyData:
-    "tdef_lift i (TyData s tss) = TyData s (cons_lift i tss)"
+    "ty_lift i (TyRec k t) = TyRec k (ty_lift (Suc i) t)"
+  | ty_lift_TyData:
+    "ty_lift i (TyData s tss) = TyData s (cons_lift i tss)"
   | "cons_lift i [] = []"
   | cons_lift_Cons:
     "cons_lift i (ts # tss) = args_lift i ts # cons_lift i tss"
@@ -105,19 +97,18 @@ primrec ty_lift :: "nat \<Rightarrow> ty \<Rightarrow> ty"
   | "args_lift i (t # ts) = ty_lift i t # args_lift i ts"
 
 primrec ty_subst :: "nat \<Rightarrow> ty \<Rightarrow> ty \<Rightarrow> ty"
-  and tdef_subst :: "nat \<Rightarrow> tdef \<Rightarrow> ty \<Rightarrow> tdef"
   and cons_subst :: "nat \<Rightarrow> ty list list \<Rightarrow> ty \<Rightarrow> ty list list"
   and args_subst :: "nat \<Rightarrow> ty list \<Rightarrow> ty \<Rightarrow> ty list"
   where "ty_subst i (TyVar n) x = substVar TyVar i x n"
   | "ty_subst i (TyBase b) x = TyBase b"
   | "ty_subst i (TyApp t1 t2) x = TyApp (ty_subst i t1 x) (ty_subst i t2 x)"
   | "ty_subst i (TyAll k t) x = TyAll k (ty_subst (Suc i) t (ty_lift 0 x))"
+  | "ty_subst i (TyLam k t) x = TyLam k (ty_subst (Suc i) t (ty_lift 0 x))"
+  | "ty_subst i (TyFix k t) x = TyFix k (ty_subst (Suc i) t (ty_lift 0 x))"
   | ty_subst_TyRec:
-    "ty_subst i (TyRec d) x = TyRec (tdef_subst (Suc i) d (ty_lift 0 x))"
-  | "tdef_subst i (TyLam k d) x = TyLam k (tdef_subst (Suc i) d (ty_lift 0 x))"
-  | "tdef_subst i (TyNew t) x = TyNew (ty_subst i t x)"
-  | tdef_subst_TyData:
-    "tdef_subst i (TyData s tss) x = TyData s (cons_subst i tss x)"
+    "ty_subst i (TyRec k t) x = TyRec k (ty_subst (Suc i) t (ty_lift 0 x))"
+  | ty_subst_TyData:
+    "ty_subst i (TyData s tss) x = TyData s (cons_subst i tss x)"
   | "cons_subst i [] x = []"
   | "cons_subst i (ts # tss) x = args_subst i ts x # cons_subst i tss x"
   | "args_subst i [] x = []"
@@ -126,27 +117,17 @@ primrec ty_subst :: "nat \<Rightarrow> ty \<Rightarrow> ty \<Rightarrow> ty"
 lemma Cons_shift: "y # shift A i x = shift (y # A) (Suc i) x"
 using shift_shift [of A i x y] by (simp add: shift_0)
 
-lemma tdef_kind_tdef_lift [simp]:
-  "tdef_kind (tdef_lift i d) = tdef_kind d"
-by (induct d arbitrary: i, simp_all)
-
-lemma
-  shows has_kind_shift_ty_lift:
-    "has_kind \<Gamma> t k \<Longrightarrow> has_kind (\<Gamma>{i:=k'}) (ty_lift i t) k"
-  and tdef_ok_shift_ty_lift:
-    "tdef_ok \<Gamma> d k \<Longrightarrow> tdef_ok (\<Gamma>{i:=k'}) (tdef_lift i d) k"
-apply (induct arbitrary: i and i set: has_kind tdef_ok)
-apply (simp add: has_kind_TyVar mapsto_shift_skip)
-apply (simp add: has_kind_TyBase)
-apply (simp add: has_kind_TyAll Cons_shift)
-apply (force intro!: has_kind_TyApp)
-apply (drule sym, simp)
-apply (rule has_kind_TyRec, simp)
-apply (simp add: Cons_shift)
-apply (simp add: tdef_ok_TyLam Cons_shift)
-apply (simp add: tdef_ok_TyNew)
-apply simp
-apply (rule tdef_ok_TyData)
+lemma has_kind_shift_ty_lift:
+  "has_kind \<Gamma> t k \<Longrightarrow> has_kind (\<Gamma>{i:=k'}) (ty_lift i t) k"
+apply (induct arbitrary: i set: has_kind)
+apply (simp add: has_kind.TyVar mapsto_shift_skip)
+apply (simp add: has_kind.TyBase)
+apply (force intro!: has_kind.TyApp)
+apply (simp add: has_kind.TyAll Cons_shift)
+apply (simp add: has_kind.TyLam Cons_shift)
+apply (simp add: has_kind.TyFix Cons_shift)
+apply (simp add: has_kind.TyRec Cons_shift)
+apply (simp, rule has_kind.TyData)
 apply (erule rev_mp, induct_tac tss, simp, simp)
 apply (rename_tac ts tss)
 apply (induct_tac ts, simp, simp)
@@ -156,42 +137,33 @@ lemma has_kind_Cons_ty_lift_0:
   "has_kind \<Gamma> t k \<Longrightarrow> has_kind (k' # \<Gamma>) (ty_lift 0 t) k"
 by (rule has_kind_shift_ty_lift [where i=0, unfolded shift_0])
 
-lemma tdef_kind_tdef_subst:
-  "tdef_kind (tdef_subst i d x) = tdef_kind d"
-by (induct d arbitrary: i x, simp_all)
-
-lemma
-  shows has_kind_ty_subst [OF _ refl]:
-    "\<lbrakk>has_kind \<Gamma>' t k; \<Gamma>' = shift \<Gamma> i k'; has_kind \<Gamma> x k'\<rbrakk>
-      \<Longrightarrow> has_kind \<Gamma> (ty_subst i t x) k"
-  and tdef_ok_tdef_subst [OF _ refl]:
-    "\<lbrakk>tdef_ok \<Gamma>' d k; \<Gamma>' = shift \<Gamma> i k'; has_kind \<Gamma> x k'\<rbrakk>
-      \<Longrightarrow> tdef_ok \<Gamma> (tdef_subst i d x) k"
-apply (induct arbitrary: \<Gamma> i x and \<Gamma> i x set: has_kind tdef_ok, simp_all)
+lemma has_kind_ty_subst [OF _ refl]:
+  "\<lbrakk>has_kind \<Gamma>' t k; \<Gamma>' = shift \<Gamma> i k'; has_kind \<Gamma> x k'\<rbrakk>
+    \<Longrightarrow> has_kind \<Gamma> (ty_subst i t x) k"
+apply (induct arbitrary: \<Gamma> i x set: has_kind, simp_all)
 txt "TyVar"
 apply (rule_tac x=n and i=i in skip_cases)
 apply (simp add: mapsto_shift_eq)
 apply (simp add: mapsto_shift_skip)
-apply (erule has_kind_TyVar)
+apply (erule has_kind.TyVar)
 txt "TyBase"
-apply (erule has_kind_TyBase)
-txt "TyAll"
-apply (rule has_kind_TyAll)
-apply (simp add: has_kind_Cons_ty_lift_0 shift_Cons_Suc)
+apply (erule has_kind.TyBase)
 txt "TyApp"
-apply (rule_tac ?k1.0=k1 in has_kind_TyApp, simp, simp)
-txt "TyRec"
-apply (rule has_kind_TyRec)
-apply (simp add: tdef_kind_tdef_subst)
-apply (simp add: has_kind_Cons_ty_lift_0 shift_Cons_Suc)
+apply (rule_tac ?k1.0=k1 in has_kind.TyApp, simp, simp)
+txt "TyAll"
+apply (rule has_kind.TyAll)
+apply (simp add: has_kind_Cons_ty_lift_0 Cons_shift)
 txt "TyLam"
-apply (rule tdef_ok_TyLam)
-apply (simp add: has_kind_Cons_ty_lift_0 shift_Cons_Suc)
-txt "TyNew"
-apply (rule tdef_ok_TyNew)
-apply simp
+apply (rule has_kind.TyLam)
+apply (simp add: has_kind_Cons_ty_lift_0 Cons_shift)
+txt "TyFix"
+apply (rule has_kind.TyFix)
+apply (simp add: has_kind_Cons_ty_lift_0 Cons_shift)
+txt "TyRec"
+apply (rule has_kind.TyRec)
+apply (simp add: has_kind_Cons_ty_lift_0 Cons_shift)
 txt "TyData"
-apply (rule tdef_ok_TyData)
+apply (rule has_kind.TyData)
 apply (erule rev_mp)
 apply (induct_tac tss, simp, simp, rename_tac ts tss)
 apply (induct_tac ts, simp, simp)
@@ -202,75 +174,506 @@ lemma has_kind_ty_subst_0:
     \<Longrightarrow> has_kind \<Gamma> (ty_subst 0 t x) k"
 by (rule has_kind_ty_subst [where i=0, unfolded shift_0])
 
-lemma tdef_ok_tdef_subst_0:
-  "\<lbrakk>tdef_ok (k' # \<Gamma>) d k; has_kind \<Gamma> x k'\<rbrakk>
-    \<Longrightarrow> tdef_ok \<Gamma> (tdef_subst 0 d x) k"
-by (rule tdef_ok_tdef_subst [where i=0, unfolded shift_0])
+lemma ty_lift_0_ty_lift [OF le0]:
+  "i \<le> k \<Longrightarrow> ty_lift i (ty_lift k t) = ty_lift (Suc k) (ty_lift i t)"
+  "i \<le> k \<Longrightarrow> cons_lift i (cons_lift k cs) = cons_lift (Suc k) (cons_lift i cs)"
+  "i \<le> k \<Longrightarrow> args_lift i (args_lift k ts) = args_lift (Suc k) (args_lift i ts)"
+by (induct t and cs and ts arbitrary: i k and i k and i k)
+   (simp_all add: skip_skip_le)
+
+lemma ty_lift_ty_subst_0 [OF le0]:
+  "k \<le> i \<Longrightarrow> ty_lift i (ty_subst k t x) =
+    ty_subst k (ty_lift (Suc i) t) (ty_lift i x)"
+  "k \<le> i \<Longrightarrow> cons_lift i (cons_subst k cs x) =
+    cons_subst k (cons_lift (Suc i) cs) (ty_lift i x)"
+  "k \<le> i \<Longrightarrow> args_lift i (args_subst k ts x) =
+    args_subst k (args_lift (Suc i) ts) (ty_lift i x)"
+apply (induct t and cs and ts arbitrary: i k x and i k x and i k x)
+apply (rule_tac x=nat and i=k in skip_cases)
+apply (simp add: skip_def)
+apply (simp add: skip_Suc_skip)
+apply (simp_all add: ty_lift_0_ty_lift)
+done
+
+lemma ty_subst_ty_lift_cancel:
+  "ty_subst i (ty_lift i t) x = t"
+  "cons_subst i (cons_lift i cs) x = cs"
+  "args_subst i (args_lift i ts) x = ts"
+by (induct t and cs and ts arbitrary: i x and i x and i x, simp_all)
+
+lemma ty_lift_ty_subst_le:
+  "i \<le> k \<Longrightarrow> ty_lift i (ty_subst k t x) =
+    ty_subst (Suc k) (ty_lift i t) (ty_lift i x)"
+  "i \<le> k \<Longrightarrow> cons_lift i (cons_subst k cs x) =
+    cons_subst (Suc k) (cons_lift i cs) (ty_lift i x)"
+  "i \<le> k \<Longrightarrow> args_lift i (args_subst k ts x) =
+    args_subst (Suc k) (args_lift i ts) (ty_lift i x)"
+apply (induct t and cs and ts arbitrary: i k x and i k x and i k x)
+apply (rule_tac x="nat" and i="k" in skip_cases)
+apply (simp add: skip_def)
+apply (simp add: skip_skip_le)
+apply (simp_all add: ty_lift_0_ty_lift)
+done
+
+lemma ty_subst_ty_subst_0 [OF le0]:
+  "j \<le> i \<Longrightarrow>
+    ty_subst i (ty_subst j t u) v =
+    ty_subst j (ty_subst (Suc i) t (ty_lift j v)) (ty_subst i u v)"
+  "j \<le> i \<Longrightarrow>
+    cons_subst i (cons_subst j cs u) v =
+    cons_subst j (cons_subst (Suc i) cs (ty_lift j v)) (ty_subst i u v)"
+  "j \<le> i \<Longrightarrow>
+    args_subst i (args_subst j ts u) v =
+    args_subst j (args_subst (Suc i) ts (ty_lift j v)) (ty_subst i u v)"
+apply (induct t and cs and ts arbitrary: i j u v and i j u v and i j u v)
+apply (rule_tac x="nat" and i="j" in skip_cases)
+apply (rule_tac x="nat" and i="Suc i" in skip_cases)
+apply simp
+apply (clarsimp, clarsimp simp add: skip_def)
+apply (clarsimp, simp add: substVar_def skip_def ty_subst_ty_lift_cancel)
+apply (simp_all add: ty_lift_0_ty_lift ty_lift_ty_subst_le [OF le0])
+done
 
 subsection {* Coercibility proofs between types *}
 
-inductive ty_ax :: "kind list \<Rightarrow> ty \<Rightarrow> tdef \<Rightarrow> kind \<Rightarrow> bool"
-where ty_ax_TyRec:
-    "has_kind \<Gamma> (TyRec d) k
-      \<Longrightarrow> ty_ax \<Gamma> (TyRec d) (tdef_subst 0 d (TyRec d)) k"
-  | ty_ax_TyApp:
-    "\<lbrakk>ty_ax \<Gamma> t (TyLam k1 d) (KArrow k1 k2); has_kind \<Gamma> x k1\<rbrakk>
-      \<Longrightarrow> ty_ax \<Gamma> (TyApp t x) (tdef_subst 0 d x) k2"
+text {* Relation @{text step} denotes parallel beta reduction of type
+expressions. It also allows unfolding of @{text TyFix} (but not @{text
+TyRec}) as a reduction step. *}
 
-inductive ty_eq :: "kind list \<Rightarrow> ty \<Rightarrow> ty \<Rightarrow> kind \<Rightarrow> bool"
-where ty_eq_refl:
-    "has_kind \<Gamma> a k \<Longrightarrow> ty_eq \<Gamma> a a k"
-  | ty_eq_sym:
-    "ty_eq \<Gamma> a b k \<Longrightarrow> ty_eq \<Gamma> b a k"
-  | ty_eq_trans:
-    "\<lbrakk>ty_eq \<Gamma> a b k; ty_eq \<Gamma> b c k\<rbrakk> \<Longrightarrow> ty_eq \<Gamma> a c k"
-  | ty_eq_TyApp:
-    "\<lbrakk>ty_eq \<Gamma> f g (KArrow k1 k2); ty_eq \<Gamma> a b k1\<rbrakk>
-      \<Longrightarrow> ty_eq \<Gamma> (TyApp f a) (TyApp g b) k2"
-  | ty_eq_TyAll:
-    "ty_eq (k # \<Gamma>) a b KStar \<Longrightarrow> ty_eq \<Gamma> (TyAll k a) (TyAll k b) KStar"
-  | ty_eq_axiom:
-    "ty_ax \<Gamma> a (TyNew b) KStar \<Longrightarrow> ty_eq \<Gamma> a b KStar"
+lemma list_all2_mono [mono]:
+  "(\<And>x y. P x y \<longrightarrow> Q x y) \<Longrightarrow> list_all2 P xs ys \<longrightarrow> list_all2 Q xs ys"
+by (induct xs arbitrary: ys, simp, case_tac ys, simp, simp)
 
-inductive_cases
-  has_kind_TyRec_elim: "has_kind \<Gamma> (TyRec d) k"
-and
-  tdef_ok_TyLam_elim: "tdef_ok \<Gamma> (TyLam k1 d) (KArrow k1 k2)"
-and
-  tdef_ok_TyNew_elim: "tdef_ok \<Gamma> (TyNew b) KStar"
+inductive step :: "ty \<Rightarrow> ty \<Rightarrow> bool"
+  where unfold: "step t t'
+      \<Longrightarrow> step (TyFix k t) (ty_subst 0 t' (TyFix k t'))"
+  | beta: "\<lbrakk>step t t'; step u u'\<rbrakk>
+      \<Longrightarrow> step (TyApp (TyLam k t) u) (ty_subst 0 t' u')"
+  | TyVar: "step (TyVar n) (TyVar n)"
+  | TyBase: "step (TyBase b) (TyBase b)"
+  | TyApp: "\<lbrakk>step t t'; step u u'\<rbrakk>
+      \<Longrightarrow> step (TyApp t u) (TyApp t' u')"
+  | TyAll: "step t t' \<Longrightarrow> step (TyAll k t) (TyAll k t')"
+  | TyLam: "step t t' \<Longrightarrow> step (TyLam k t) (TyLam k t')"
+  | TyFix: "step t t' \<Longrightarrow> step (TyFix k t) (TyFix k t')"
+  | TyRec: "step t t' \<Longrightarrow> step (TyRec k t) (TyRec k t')"
+  | TyData: "list_all2 (list_all2 step) tss tss'
+      \<Longrightarrow> step (TyData s tss) (TyData s tss')"
 
-lemma ty_ax_has_kind:
-  assumes "ty_ax \<Gamma> t d k"
-  shows "has_kind \<Gamma> t k \<and> tdef_ok \<Gamma> d k"
+inductive_cases step_elims:
+  "step (TyVar n) t'"
+  "step (TyBase b) t'"
+  "step (TyApp t1 t2) t'"
+  "step (TyAll t1 t2) t'"
+  "step (TyLam k t) t'"
+  "step (TyFix k t) t'"
+  "step (TyRec k t) t'"
+  "step (TyData s tss) t'"
+
+lemma list_all2_intros:
+  "list_all2 P [] []"
+  "\<lbrakk>P x y; list_all2 P xs ys\<rbrakk> \<Longrightarrow> list_all2 P (x # xs) (y # ys)"
+by simp_all
+
+lemma step_refl: "step t t"
+by (induct t) (rule step.intros list_all2_intros | assumption)+
+
+text {* Each relation preserves kinds. *}
+
+lemma list_all2_list_all_implies_list_all:
+  assumes P: "list_all2 P xs ys" and Q: "list_all Q xs"
+  assumes R: "\<And>x y. P x y \<Longrightarrow> Q x \<Longrightarrow> R y"
+  shows "list_all R ys"
+using P Q
+apply (induct xs arbitrary: ys, simp)
+apply (case_tac ys, simp, auto intro: R)
+done
+
+lemma step_has_kind:
+  assumes "step t t'" and "has_kind \<Gamma> t k"
+  shows "has_kind \<Gamma> t' k"
 using assms
-apply (induct set: ty_ax)
-txt "TyRec"
+apply (induct arbitrary: \<Gamma> k set: step)
+apply (auto elim!: has_kind_elims list_all2_list_all_implies_list_all
+  intro!: has_kind.intros has_kind_ty_subst_0)
+done
+
+text {* The reduction relations are confluent. *}
+
+lemma args_lift: "args_lift i = map (ty_lift i)"
+by (rule ext, induct_tac x, simp_all)
+
+lemma cons_lift: "cons_lift i = map (args_lift i)"
+by (rule ext, induct_tac x, simp_all)
+
+lemma step_ty_lift:
+  assumes "step t t'"
+  shows "step (ty_lift i t) (ty_lift i t')"
+using assms
+apply (induct arbitrary: i set: step)
+apply (simp add: ty_lift_ty_subst_0 step.unfold)
+apply (simp add: ty_lift_ty_subst_0 step.beta)
+apply (simp_all add: step.intros)
+apply (rule step.TyData)
+apply (simp add: args_lift cons_lift)
+apply (simp add: list_all2_map1 list_all2_map2)
+apply (erule list_all2_mono [rule_format, COMP swap_prems_rl])
+apply (erule list_all2_mono [rule_format, COMP swap_prems_rl])
 apply simp
-apply (erule has_kind_TyRec_elim)
-apply (rule tdef_ok_tdef_subst_0, assumption)
-apply (rule has_kind_TyRec, simp, simp)
-txt "TyApp"
-apply (rule conjI)
-apply (force intro!: has_kind_TyApp)
-apply (erule conjE)
-apply (erule tdef_ok_TyLam_elim)
-apply (erule (1) tdef_ok_tdef_subst_0)
 done
 
-lemma ty_eq_has_kind:
-  assumes "ty_eq \<Gamma> t t' k"
-  shows "has_kind \<Gamma> t k \<and> has_kind \<Gamma> t' k"
+lemma args_subst: "args_subst i ts x = map (\<lambda>t. ty_subst i t x) ts"
+by (induct ts, simp_all)
+
+lemma cons_subst: "cons_subst i tss x = map (\<lambda>ts. args_subst i ts x) tss"
+by (induct tss, simp_all)
+
+lemma step_ty_subst:
+  assumes t: "step t t'"
+  assumes u: "step u u'"
+  shows "step (ty_subst i t u) (ty_subst i t' u')"
 using assms
-apply (induct set: ty_eq)
-apply simp (* refl *)
-apply simp (* sym *)
-apply simp (* trans *)
-apply (force intro!: has_kind_TyApp) (* TyApp *)
-apply (simp add: has_kind_TyAll) (* TyAll *)
-apply (drule ty_ax_has_kind)
-apply clarsimp
-apply (erule (1) tdef_ok_TyNew_elim)
+apply (induct arbitrary: i u u' set: step)
+apply (simp_all add: ty_subst_ty_subst_0 step.intros step_ty_lift)
+apply (rule_tac x=n and i=i in skip_cases, simp, simp add: step.TyVar)
+apply (rule step.TyData)
+apply (simp add: args_subst cons_subst)
+apply (simp add: list_all2_map1 list_all2_map2)
+apply (erule list_all2_mono [rule_format, COMP swap_prems_rl])
+apply (erule list_all2_mono [rule_format, COMP swap_prems_rl])
+apply simp
 done
+
+lemma list_all2_induct
+  [consumes 1, case_names Nil Cons, induct set: list_all2]:
+  assumes P: "list_all2 P xs ys"
+  assumes Nil: "R [] []"
+  assumes Cons: "\<And>x xs y ys. \<lbrakk>P x y; R xs ys\<rbrakk> \<Longrightarrow> R (x # xs) (y # ys)"
+  shows "R xs ys"
+using P
+apply (induct xs arbitrary: ys)
+apply (simp add: Nil, case_tac ys, simp, simp add: Cons)
+done
+
+lemma list_all2_list_all2_implies_list_all2:
+  assumes P: "list_all2 P xs ys" and Q: "list_all2 Q xs zs"
+  assumes R: "\<And>x y z. P x y \<Longrightarrow> Q x z \<Longrightarrow> R y z"
+  shows "list_all2 R ys zs"
+using P Q
+apply (induct xs arbitrary: ys zs, simp)
+apply (case_tac ys, simp, case_tac zs, simp, auto elim: R)
+done
+
+lemma step_confluent:
+  assumes "step t x"
+  assumes "step t y"
+  shows "\<exists>t'. step x t' \<and> step y t'"
+ using assms
+ apply (induct arbitrary: y set: step)
+          apply (erule step_elims)
+           apply (rename_tac t'', drule_tac x=t'' in meta_spec, clarsimp)
+           apply (rule exI, rule conjI)
+            apply (rule step_ty_subst, assumption)
+            apply (rule step.TyFix, assumption)
+           apply (rule step_ty_subst, assumption)
+           apply (rule step.TyFix, assumption)
+          apply (rename_tac t'', drule_tac x=t'' in meta_spec, clarsimp)
+          apply (rule exI, rule conjI)
+           apply (rule step_ty_subst, assumption)
+           apply (rule step.TyFix, assumption)
+          apply (erule step.unfold)
+         apply (elim step_elims)
+          apply (clarsimp, rename_tac t'' u'')
+          apply (drule_tac x=t'' in meta_spec, clarsimp)
+          apply (drule_tac x=u'' in meta_spec, clarsimp)
+          apply (rule exI, rule conjI)
+           apply (erule (1) step_ty_subst)
+          apply (erule (1) step_ty_subst)
+         apply (clarsimp, rename_tac u'' t'')
+         apply (drule_tac x=t'' in meta_spec, clarsimp)
+         apply (drule_tac x=u'' in meta_spec, clarsimp)
+         apply (rule exI, rule conjI)
+          apply (erule (1) step_ty_subst)
+         apply (erule (1) step.beta)
+        apply (erule step_elims)
+        apply (fast intro: step.TyVar)
+       apply (erule step_elims)
+       apply (fast intro: step.TyBase)
+      apply (erule step_elims)
+       apply (clarsimp, rename_tac t'' u'' k)
+       apply (drule_tac x="TyLam k t''" in meta_spec)
+       apply (drule_tac x="u''" in meta_spec)
+       apply (clarsimp simp add: step.TyLam)
+       apply (elim step_elims, clarsimp)
+       apply (elim step_elims, clarsimp)
+       apply (rule exI, rule conjI)
+        apply (erule (1) step.beta)
+       apply (erule (1) step_ty_subst)
+      apply (clarsimp, rename_tac t'' u'')
+      apply (drule_tac x=t'' in meta_spec, clarsimp)
+      apply (drule_tac x=u'' in meta_spec, clarsimp)
+      apply (rule exI, rule conjI)
+       apply (erule (1) step.TyApp)
+      apply (erule (1) step.TyApp)
+     apply (erule step_elims, clarsimp, rename_tac t'')
+     apply (drule_tac x=t'' in meta_spec, clarsimp)
+     apply (rule exI, rule conjI)
+      apply (erule step.TyAll)
+     apply (erule step.TyAll)
+    apply (erule step_elims, clarsimp, rename_tac t'')
+    apply (drule_tac x=t'' in meta_spec, clarsimp)
+    apply (rule exI, rule conjI)
+     apply (erule step.TyLam)
+    apply (erule step.TyLam)
+   apply (erule step_elims)
+    apply (clarsimp, rename_tac t'')
+    apply (drule_tac x=t'' in meta_spec, clarsimp)
+    apply (rule exI, rule conjI)
+     apply (rule step.unfold, assumption)
+     apply (rule step_ty_subst, assumption)
+     apply (erule step.TyFix)
+   apply (clarsimp, rename_tac t'')
+   apply (drule_tac x=t'' in meta_spec, clarsimp)
+   apply (rule exI, rule conjI)
+    apply (erule step.TyFix)
+   apply (erule step.TyFix)
+  apply (erule step_elims)
+  apply (clarsimp, rename_tac t'')
+  apply (drule_tac x=t'' in meta_spec, clarsimp)
+  apply (rule exI, rule conjI)
+   apply (erule step.TyRec)
+  apply (erule step.TyRec)
+ apply (elim step_elims, clarsimp, rename_tac tss'')
+ apply (drule (1) list_all2_list_all2_implies_list_all2)
+ apply (erule (1) list_all2_list_all2_implies_list_all2)
+ apply (erule conjE)
+ apply (drule spec, erule (1) mp)
+ apply (erule thin_rl)
+ apply (erule list_all2_induct)
+   apply simp
+   apply (rule exI)
+   apply (rule step.TyData)
+   apply simp
+  apply (clarsimp elim!: step_elims)
+  apply (erule list_all2_induct)
+   apply (rule exI, rule conjI)
+    apply (rule step.TyData)
+    apply (rule list_all2_Cons [THEN iffD2, OF conjI], simp, assumption)
+   apply (rule step.TyData)
+   apply (rule list_all2_Cons [THEN iffD2, OF conjI], simp, assumption)
+  apply (clarsimp elim!: step_elims)
+  apply (case_tac tss'b, simp, clarsimp)
+  apply (rule exI, rule conjI)
+   apply (rule step.TyData)
+   apply (rule list_all2_Cons [THEN iffD2, OF conjI])
+    apply (erule (1) list_all2_Cons [THEN iffD2, OF conjI])
+   apply assumption
+  apply (rule step.TyData)
+  apply (rule list_all2_Cons [THEN iffD2, OF conjI])
+   apply (erule (1) list_all2_Cons [THEN iffD2, OF conjI])
+  apply assumption
+done
+
+subsection {* Transitive reducibility relation *}
+
+text {* Relation @{text steps} is the reflexive, transitive closure of
+@{text step}. *}
+
+inductive steps :: "ty \<Rightarrow> ty \<Rightarrow> bool"
+  for t where refl: "steps t t"
+  | step: "\<lbrakk>steps t u; step u u'\<rbrakk> \<Longrightarrow> steps t u'"
+
+lemma steps_trans:
+  assumes "steps t u"
+  shows "steps u v \<Longrightarrow> steps t v"
+by (induct set: steps, fact, erule (1) steps.step)
+
+lemma steps_has_kind:
+  assumes "steps t t'" and "has_kind \<Gamma> t k"
+  shows "has_kind \<Gamma> t' k"
+using assms
+apply (induct set: steps)
+apply (auto elim: step_has_kind)
+done
+
+lemma steps_ty_lift:
+  assumes "steps t t'"
+  shows "steps (ty_lift i t) (ty_lift i t')"
+using assms
+apply (induct set: steps)
+apply (rule steps.refl)
+apply (erule steps.step)
+apply (erule step_ty_lift)
+done
+
+lemma steps_step_confluent:
+  assumes "steps t a" and "step t b"
+  shows "\<exists>t'. step a t' \<and> steps b t'"
+using assms
+apply (induct set: steps)
+apply (rule exI, erule conjI [OF _ steps.refl])
+apply clarsimp
+apply (drule (1) step_confluent, clarsimp)
+apply (rule exI, erule conjI)
+apply (erule (1) steps.step)
+done
+
+lemma steps_confluent:
+  assumes "steps t a" and "steps t b"
+  shows "\<exists>t'. steps a t' \<and> steps b t'"
+using assms
+apply (induct set: steps)
+apply (rule exI, erule conjI [OF _ steps.refl])
+apply clarsimp
+apply (drule (1) steps_step_confluent, clarsimp)
+apply (rule exI, erule conjI)
+apply (erule (1) steps.step)
+done
+
+lemma steps_ty_subst:
+  assumes "steps t t'" and "steps u u'"
+  shows "steps (ty_subst i t u) (ty_subst i t' u')"
+using assms(1)
+apply (induct set: steps)
+using assms(2)
+apply (induct set: steps)
+apply (rule steps.refl)
+apply (erule steps.step)
+apply (erule step_ty_subst [OF step_refl])
+apply (erule steps.step)
+apply (erule step_ty_subst [OF _ step_refl])
+done
+
+lemma steps_TyApp:
+  assumes "steps t t'" and "steps u u'"
+  shows "steps (TyApp t u) (TyApp t' u')"
+using assms(1)
+apply (induct set: steps)
+using assms(2)
+apply (induct set: steps)
+apply (rule steps.refl)
+apply (erule steps.step)
+apply (erule step.TyApp [OF step_refl])
+apply (erule steps.step)
+apply (erule step.TyApp [OF _ step_refl])
+done
+
+lemma steps_TyAll_dest:
+  assumes "steps (TyAll k t) u"
+  shows "\<exists>t'. u = TyAll k t' \<and> steps t t'"
+using assms
+apply (induct set: steps)
+apply (simp add: steps.refl)
+apply (clarsimp elim!: step_elims)
+apply (erule (1) steps.step)
+done
+
+
+subsection {* Convertibility of type expressions *}
+
+text {* Relation @{text conv} is the symmetric closure of @{text
+steps}. *}
+
+inductive conv :: "ty \<Rightarrow> ty \<Rightarrow> bool"
+  where steps: "\<lbrakk>steps t1 u; steps t2 u\<rbrakk> \<Longrightarrow> conv t1 t2"
+
+lemma conv_refl: "conv t t"
+by (rule conv.steps [OF steps.refl steps.refl])
+
+lemma conv_sym: "conv t u \<Longrightarrow> conv u t"
+by (erule conv.induct, erule (1) conv.steps)
+
+lemma conv_trans: "conv t u \<Longrightarrow> conv u v \<Longrightarrow> conv t v"
+apply (clarsimp elim!: conv.cases)
+apply (drule (1) steps_confluent, clarify)
+apply (rule conv.steps)
+apply (erule (1) steps_trans)
+apply (erule (1) steps_trans)
+done
+
+lemma conv_unfold: "conv (TyFix k t) (ty_subst 0 t (TyFix k t))"
+apply (rule conv.intros [OF _ steps.refl])
+apply (rule steps.step [OF steps.refl])
+apply (rule step.unfold [OF step_refl])
+done
+
+lemma conv_beta: "conv (TyApp (TyLam k t) u) (ty_subst 0 t u)"
+apply (rule conv.intros [OF _ steps.refl])
+apply (rule steps.step [OF steps.refl])
+apply (rule step.beta [OF step_refl step_refl])
+done
+
+lemma conv_subst:
+  assumes "conv t t'" and "conv u u'"
+  shows "conv (ty_subst i t u) (ty_subst i t' u')"
+using assms
+by (auto elim!: conv.cases intro: conv.intros steps_ty_subst)
+
+lemma conv_TyApp:
+  "\<lbrakk>conv t t'; conv u u'\<rbrakk> \<Longrightarrow> conv (TyApp t u) (TyApp t' u')"
+by (auto elim!: conv.cases intro: conv.intros steps_TyApp)
+
+lemma conv_TyAll_dest:
+  "conv (TyAll k t) (TyAll k t') \<Longrightarrow> conv t t'"
+by (auto elim!: conv.cases dest!: steps_TyAll_dest
+  intro: conv.intros)
+
+
+subsection {* Injective type constructors *}
+
+inductive ty_injective :: "ty \<Rightarrow> bool"
+  where TyBase: "ty_injective (TyBase b)"
+  | TyApp: "ty_injective t \<Longrightarrow> ty_injective (TyApp t u)"
+  | TyRec: "ty_injective (TyRec k t)"
+
+lemma step_ty_injective:
+  "\<lbrakk>step t t'; ty_injective t\<rbrakk> \<Longrightarrow> ty_injective t'"
+apply (induct set: step)
+apply (auto elim: ty_injective.cases intro!: ty_injective.intros)
+done
+
+lemma steps_ty_injective:
+  "\<lbrakk>steps t t'; ty_injective t\<rbrakk> \<Longrightarrow> ty_injective t'"
+apply (induct set: steps, assumption)
+apply (auto dest: step_ty_injective)
+done
+
+lemma ty_injective_step_dest:
+  "\<lbrakk>ty_injective t; step (TyApp t u) ty\<rbrakk>
+    \<Longrightarrow> \<exists>t' u'. ty = TyApp t' u' \<and> step t t' \<and> step u u'"
+apply (induct arbitrary: u ty set: ty_injective)
+apply (auto elim: step_elims)
+done
+
+lemma ty_injective_steps_dest:
+  "\<lbrakk>steps (TyApp t u) ty; ty_injective t\<rbrakk>
+    \<Longrightarrow> \<exists>t' u'. ty = TyApp t' u' \<and> steps t t' \<and> steps u u'"
+apply (induct set: steps)
+apply (simp add: steps.refl)
+apply clarsimp
+apply (drule (1) steps_ty_injective [COMP swap_prems_rl])
+apply (drule (1) ty_injective_step_dest, clarsimp)
+apply (rule conjI)
+apply (erule (1) steps.step)
+apply (erule (1) steps.step)
+done
+
+lemma ty_injective_conv_dest:
+  "\<lbrakk>conv (TyApp t a) (TyApp u b); ty_injective t; ty_injective u\<rbrakk>
+    \<Longrightarrow> conv t u \<and> conv a b"
+apply (clarsimp elim!: conv.cases)
+apply (drule (1) ty_injective_steps_dest)
+apply (drule (1) ty_injective_steps_dest)
+apply clarsimp
+apply (rule conjI)
+apply (erule (1) conv.intros)
+apply (erule (1) conv.intros)
+done
+
+lemma ty_injective_conv_iff:
+  "\<lbrakk>ty_injective t; ty_injective u\<rbrakk>
+    \<Longrightarrow> conv (TyApp t a) (TyApp u b) \<longleftrightarrow> conv t u \<and> conv a b"
+by (safe dest!: ty_injective_conv_dest intro!: conv_TyApp)
 
 
 subsection {* Examples *}
@@ -283,11 +686,11 @@ data Forest a = Nil | Cons (Tree a) (Forest a)
 *}
 
 definition Tree :: ty
-  where "Tree = TyRec (TyLam KStar (TyData ''Tree'' [[TyVar 0], [TyApp (TyRec (TyLam KStar (TyData ''Forest''
+  where "Tree = TyRec (KArrow KStar KStar) (TyLam KStar (TyData ''Tree'' [[TyVar 0], [TyApp (TyRec (KArrow KStar KStar) (TyLam KStar (TyData ''Forest''
   [[], [TyApp (TyVar 0\<onesuperior>) (TyVar 0), TyApp (TyVar 0\<onesuperior>\<onesuperior>\<onesuperior>) (TyVar 0)]]))) (TyVar 0)]]))"
 
 definition Forest :: ty
-  where "Forest = TyRec (TyLam KStar (TyData ''Forest''
+  where "Forest = TyRec (KArrow KStar KStar) (TyLam KStar (TyData ''Forest''
   [[], [TyApp (TyVar 0\<onesuperior>) (TyVar 0), TyApp Tree (TyVar 0)]]))"
 
 lemma has_kind_Tree: "has_kind \<Gamma> Tree (KArrow KStar KStar)"
@@ -298,17 +701,23 @@ lemma has_kind_Forest: "has_kind \<Gamma> Forest (KArrow KStar KStar)"
 unfolding Forest_def Tree_def
 by (rule kind_rules)+
 
+lemma ty_injective_Tree: "ty_injective Tree"
+unfolding Tree_def by (rule ty_injective.TyRec)
+
+lemma conv_Tree_iff: "conv (TyApp Tree a) (TyApp Tree b) \<longleftrightarrow> conv a b"
+by (simp add: ty_injective_conv_iff ty_injective_Tree conv_refl)
+
 text {*
 data Either a b = Left a | Right b
 data List a = Nil | Cons a (List a)
 *}
 
 definition
-  "Either = TyRec (TyLam KStar (TyLam KStar
-    (TyData ''Either'' [[TyVar 0\<onesuperior>], [TyVar 0]])))"
+  "Either = TyRec (KArrow KStar (KArrow KStar KStar))
+    (TyLam KStar (TyLam KStar (TyData ''Either'' [[TyVar 0\<onesuperior>], [TyVar 0]])))"
 
 definition
-  "List = TyRec (TyLam KStar
+  "List = TyRec (KArrow KStar KStar) (TyLam KStar
     (TyData ''List'' [[], [TyVar 0, TyApp (TyVar 0\<onesuperior>) (TyVar 0)]]))"
 
 lemma has_kind_Either:
@@ -324,34 +733,25 @@ newtype MyList a = MkMyList (List a)
 *}
 
 definition
-  "MyList = TyRec (TyLam KStar (TyNew (TyApp List (TyVar 0))))"
+  "MyList = TyFix (KArrow KStar KStar)
+    (TyLam KStar (TyApp List (TyVar 0)))"
 
 lemma has_kind_MyList:
   "has_kind \<Gamma> MyList (KArrow KStar KStar)"
 unfolding MyList_def by (rule kind_rules has_kind_List)+
 
-lemma ty_ax_TyApp':
-  "\<lbrakk>has_kind \<Gamma> x k1; ty_ax \<Gamma> t (TyLam k1 d) (KArrow k1 k2);
-    d2 = tdef_subst 0 d x\<rbrakk>
-    \<Longrightarrow> ty_ax \<Gamma> (TyApp t x) d2 k2"
-by (simp add: ty_ax_TyApp)
-
-lemma ty_ax_TyRec':
-  "\<lbrakk>has_kind \<Gamma> t k; t = TyRec d; d' = tdef_subst 0 d (TyRec d)\<rbrakk>
-    \<Longrightarrow> ty_ax \<Gamma> t d' k"
-by (simp add: ty_ax_TyRec)
-
 lemma ty_subst_List: "ty_subst i List x = List"
 unfolding List_def by simp
 
-lemma ty_eq_MyList:
-  assumes "has_kind \<Gamma> a KStar"
-  shows "ty_eq \<Gamma> (TyApp MyList a) (TyApp List a) KStar"
-apply (rule ty_eq_axiom)
-apply (rule ty_ax_TyApp' [OF assms])
-apply (rule ty_ax_TyRec' [OF has_kind_MyList MyList_def])
-apply simp
+lemma conv_MyList:
+  shows "conv (TyApp MyList a) (TyApp List a)"
+unfolding MyList_def
+apply (rule conv_trans)
+apply (rule conv_TyApp [OF conv_unfold conv_refl])
 apply (simp add: ty_subst_List)
+apply (rule conv_trans [OF conv_beta])
+apply (simp add: ty_subst_List)
+apply (rule conv_refl)
 done
 
 text {*
@@ -360,11 +760,11 @@ newtype Forest a = MkForest (List (Tree a))
 *}
 
 definition
-  "Tree' = TyRec (TyLam KStar (TyNew (TyApp (TyApp Either (TyVar 0)) (TyApp (TyRec (TyLam KStar (TyNew (TyApp List (TyApp (TyVar 0\<onesuperior>\<onesuperior>\<onesuperior>) (TyVar 0)))))) (TyVar 0)))))"
+  "Tree' = TyFix (KArrow KStar KStar) (TyLam KStar (TyApp (TyApp Either (TyVar 0)) (TyApp (TyFix (KArrow KStar KStar) (TyLam KStar (TyApp List (TyApp (TyVar 0\<onesuperior>\<onesuperior>\<onesuperior>) (TyVar 0))))) (TyVar 0))))"
 
 definition
-  "Forest' = TyRec (TyLam KStar
-    (TyNew (TyApp List (TyApp Tree' (TyVar 0)))))"
+  "Forest' = TyFix (KArrow KStar KStar)
+    (TyLam KStar (TyApp List (TyApp Tree' (TyVar 0))))"
 
 lemma has_kind_Tree':
   "has_kind \<Gamma> Tree' (KArrow KStar KStar)"
@@ -376,24 +776,26 @@ lemma has_kind_Forest':
 unfolding Forest'_def
 by (rule kind_rules has_kind_List has_kind_Tree')+
 
-lemma ty_eq_Forest':
-  assumes "has_kind \<Gamma> a KStar"
-  shows "ty_eq \<Gamma> (TyApp Forest' a) (TyApp List (TyApp Tree' a)) KStar"
-apply (rule ty_eq_axiom)
-apply (rule ty_ax_TyApp' [OF assms])
-apply (rule ty_ax_TyRec' [OF has_kind_Forest' Forest'_def])
+lemma conv_Forest':
+  "conv (TyApp Forest' a) (TyApp List (TyApp Tree' a))"
+unfolding Forest'_def Tree'_def List_def Either_def
+apply (rule conv_trans)
+apply (rule conv_TyApp [OF conv_unfold conv_refl])
 apply simp
-apply (simp add: List_def Tree'_def Either_def)
+apply (rule conv_trans [OF conv_beta])
+apply simp
+apply (rule conv_refl)
 done
 
-lemma ty_eq_Tree':
-  assumes "has_kind \<Gamma> a KStar"
-  shows "ty_eq \<Gamma> (TyApp Tree' a) (TyApp (TyApp Either a) (TyApp Forest' a)) KStar"
-apply (rule ty_eq_axiom)
-apply (rule ty_ax_TyApp' [OF assms])
-apply (rule ty_ax_TyRec' [OF has_kind_Tree' Tree'_def])
+lemma conv_Tree':
+  "conv (TyApp Tree' a) (TyApp (TyApp Either a) (TyApp Forest' a))"
+unfolding Forest'_def Tree'_def List_def Either_def
+apply (rule conv_trans)
+apply (rule conv_TyApp [OF conv_unfold conv_refl])
 apply simp
-apply (simp add: List_def Forest'_def Tree'_def Either_def)
+apply (rule conv_trans [OF conv_beta])
+apply simp
+apply (rule conv_refl)
 done
 
 end
