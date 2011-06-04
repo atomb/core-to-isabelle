@@ -20,9 +20,12 @@ executable core-to-isabelle
                          ghc-paths,
                          process == 1.0.*
 
-executable ShallowTest 
-    hs-source-dirs:      isa
-    main-is:             ShallowTest.hs
+executable core2isa
+    hs-source-dirs:      src
+    main-is:             Core2Isa.hs
+    ghc-options:         -Wall
     build-depends:       core == 0.5.*,
                          filepath == 1.2.*,
-                         bytestring == 0.9.*
+                         bytestring == 0.9.*,
+                         text == 0.11.*,
+                         wl-pprint-text == 1.0.*

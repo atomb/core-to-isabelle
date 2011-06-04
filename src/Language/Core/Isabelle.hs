@@ -1,9 +1,8 @@
+module Language.Core.Isabelle where
+
 import Language.Core.Syntax
-import Language.Core.Parser
 -- import Language.Core.ParseGlue
-import System.Environment
 import Data.List ( intercalate, isSuffixOf )
-import System.FilePath ( takeBaseName )
 import qualified Data.ByteString.Lazy.Char8 as L
 
 processTdef :: Tdef -> String
@@ -217,13 +216,6 @@ convert (Note _ e) = convert e
 convert (External _ _) = undefined
 -}
 
-main = do
-  [f] <- getArgs
-  c   <- L.readFile f
-  let newName = takeBaseName f
-  case parseModule newName c of
-    Left err -> putStrLn $ "Failed: " ++ show err
-    Right  m -> putStrLn $ processModule m newName
 {-
   case parse c 0 of
     FailP s -> putStrLn $ "Failed: " ++ s
