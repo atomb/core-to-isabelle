@@ -28,4 +28,5 @@ executable core2isa
                          filepath == 1.2.*,
                          bytestring == 0.9.*,
                          text == 0.11.*,
-                         wl-pprint-text == 1.0.*
+                         wl-pprint-text == 1.0.*,
+                         zenc == 0.1.*
