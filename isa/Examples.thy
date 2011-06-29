@@ -7,36 +7,26 @@ declare Vtapp_Vtlam [simp]
 
 subsection "Polymorphic identity function"
 
-definition "ident = \<guillemotleft>\<lambda> @a (x::a). x\<guillemotright>"
-
-lemma has_type_ident [type_rule]:
-  "ident ::: \<langle>forall a. a \<rightarrow> a\<rangle>"
-unfolding ident_def
-by typecheck
+halicore_fun ident :: "forall a. a \<rightarrow> a" = "\<lambda> @a (x::a). x"
 
 lemma ident: "x ::: a \<Longrightarrow> \<guillemotleft>ident @a x\<guillemotright> = \<guillemotleft>x\<guillemotright>"
-unfolding ident_def
+unfolding ident_unfold
 by simp
 
 lemma "\<guillemotleft>ident @(a \<rightarrow> a) (ident @a)\<guillemotright> = \<guillemotleft>ident @a\<guillemotright>"
-unfolding ident_def
+unfolding ident_unfold
 by simp
 
 subsection "Defining fmap in terms of return and bind"
 
 term "\<guillemotleft>\<lambda>(x::forall a. a \<rightarrow> a). x\<guillemotright>"
 
-definition
-  "mk_fmap =
-    \<guillemotleft>\<lambda> @(m :: \<star> \<rightarrow> \<star>) (return :: forall a. a \<rightarrow> m a)
+halicore_fun mk_fmap
+  :: "forall (m::\<star> \<rightarrow> \<star>). (forall a. a \<rightarrow> m a) \<rightarrow> (forall a b. m a \<rightarrow> (a \<rightarrow> m b) \<rightarrow> m b) \<rightarrow> (forall a b. (a \<rightarrow> b) \<rightarrow> m a \<rightarrow> m b)"
+  = "\<lambda> @(m :: \<star> \<rightarrow> \<star>) (return :: forall a. a \<rightarrow> m a)
        (bind :: forall a b. m a \<rightarrow> (a \<rightarrow> m b) \<rightarrow> m b)
        @a @b (f :: a \<rightarrow> b) (xs :: m a).
-       bind @a @b xs (\<lambda>(x::a). return @b (f x))\<guillemotright>"
-
-lemma has_type_fmap [type_rule]:
-  "mk_fmap ::: \<langle>forall (m::\<star> \<rightarrow> \<star>). (forall a. a \<rightarrow> m a) \<rightarrow> (forall a b. m a \<rightarrow> (a \<rightarrow> m b) \<rightarrow> m b) \<rightarrow> (forall a b. (a \<rightarrow> b) \<rightarrow> m a \<rightarrow> m b)\<rangle>"
-unfolding mk_fmap_def
-by typecheck
+       bind @a @b xs (\<lambda>(x::a). return @b (f x))"
 
 lemma Tfun_cases:
   assumes f: "f ::: \<langle>a \<rightarrow> b\<rangle>"
@@ -87,13 +77,13 @@ lemma
   assumes return_defined: "\<guillemotleft>return @a\<guillemotright> \<noteq> \<bottom>"
   assumes right_unit: "\<And>xs. xs ::: \<langle>m a\<rangle> \<Longrightarrow> \<guillemotleft>bind @a @a xs (return @a)\<guillemotright> = xs"
   shows "\<guillemotleft>mk_fmap @m return bind @a @a (ident @a)\<guillemotright> = \<guillemotleft>ident @(m a)\<guillemotright>"
-unfolding mk_fmap_def
+unfolding mk_fmap_unfold
 apply simp
 apply (rule V_ext)
 apply typecheck
 apply typecheck
 apply (rule Vlam_defined)
-apply (simp add: ident_def Vlam_defined)
+apply (simp add: ident_unfold Vlam_defined)
 apply (rename_tac xs)
 apply simp
 apply (simp add: ident)
@@ -120,14 +110,14 @@ lemma
   assumes return_defined: "\<guillemotleft>return @a\<guillemotright> \<noteq> \<bottom>"
   assumes right_unit: "\<And>xs. xs ::: \<langle>m a\<rangle> \<Longrightarrow> \<guillemotleft>bind @a @a xs (return @a)\<guillemotright> = xs"
   shows "\<guillemotleft>mk_fmap @m return bind @a @a (ident @a)\<guillemotright> = \<guillemotleft>ident @(m a)\<guillemotright>"
-unfolding mk_fmap_def
+unfolding mk_fmap_unfold
 apply simp
 apply (simp add: ident)
 apply (subst V_eta)
 apply typecheck
 apply (rule return_defined)
 apply (simp add: right_unit)
-apply (simp add: ident_def)
+apply (simp add: ident_unfold)
 done
 
 subsection {* Polymorphic seq function *}
@@ -135,11 +125,8 @@ subsection {* Polymorphic seq function *}
 text {* This example demonstrates the typecheck tactic on a
 wildcard-only case expression. *}
 
-definition seq where
-  "seq = \<guillemotleft>\<lambda>@a @b (x::a) (y::b). case (b) x of w {_ \<rightarrow> y}\<guillemotright>"
-
-lemma seq_type: "seq ::: \<langle>forall a b. a \<rightarrow> b \<rightarrow> b\<rangle>"
-unfolding seq_def by typecheck
+halicore_fun seq :: "forall a b. a \<rightarrow> b \<rightarrow> b"
+  = "\<lambda>@a @b (x::a) (y::b). case (b) x of w {_ \<rightarrow> y}"
 
 
 subsection "Maybe datatype"
@@ -183,16 +170,16 @@ done
 
 subsection "Example from Maybe.hcr"
 
-definition
-  "maybemap =
-   \<guillemotleft>\<lambda> @aady @badzz (fadm :: aady \<rightarrow> badzz) (dsddB :: Maybe aady).
+halicore_fun maybemap
+  :: "forall aadk badl. (aadk \<rightarrow> badl) \<rightarrow> Maybe aadk \<rightarrow> Maybe badl"
+  = "\<lambda> @aady @badzz (fadm :: aady \<rightarrow> badzz) (dsddB :: Maybe aady).
     case (Maybe badzz) dsddB of wildB1
-    {Nothing \<rightarrow> Nothing @badzz; Just (xado::aady) \<rightarrow> Just @badzz (fadm xado)}\<guillemotright>"
+    {Nothing \<rightarrow> Nothing @badzz; Just (xado::aady) \<rightarrow> Just @badzz (fadm xado)}"
 
 lemma maybemap_bottom:
   assumes [type_rule]: "f ::: \<langle>a \<rightarrow> b\<rangle>"
   shows "\<guillemotleft>maybemap @a @b f \<lbrace>\<bottom>\<rbrace>\<guillemotright> = \<bottom>"
-unfolding maybemap_def
+unfolding maybemap_unfold
 apply (simp add: has_type_bottom)
 apply (simp add: Vcase_bottom)
 done
@@ -201,7 +188,7 @@ lemma maybemap_beta:
   assumes [type_rule]: "f ::: \<langle>a \<rightarrow> b\<rangle>" "m ::: \<langle>Maybe a\<rangle>"
   shows "\<guillemotleft>maybemap @a @b f m\<guillemotright> = \<guillemotleft>case (Maybe b) m of w
     {Nothing \<rightarrow> Nothing @b; Just (x::a) \<rightarrow> Just @b (f x)}\<guillemotright>"
-unfolding maybemap_def
+unfolding maybemap_unfold
 by simp
 
 lemma maybemap_Nothing:
@@ -215,18 +202,13 @@ lemma maybemap_Just:
   shows "\<guillemotleft>maybemap @a @b f (Just @a x)\<guillemotright> = \<guillemotleft>Just @b (f x)\<guillemotright>"
 by (simp add: maybemap_beta case_Maybe)
 
-lemma has_type_maybemap [type_rule]:
-  "maybemap ::: \<langle>forall aadk badl. (aadk \<rightarrow> badl) \<rightarrow> Maybe aadk \<rightarrow> Maybe badl\<rangle>"
-unfolding maybemap_def
-by typecheck
-
 lemma maybemap_ident:
   "\<guillemotleft>maybemap @a @a (ident @a)\<guillemotright> = \<guillemotleft>ident @(Maybe a)\<guillemotright>"
 apply (rule V_ext)
 apply typecheck
 apply typecheck
-apply (simp add: maybemap_def Vlam_defined)
-apply (simp add: ident_def Vlam_defined)
+apply (simp add: maybemap_unfold Vlam_defined)
+apply (simp add: ident_unfold Vlam_defined)
 apply (erule Maybe_cases)
 apply (simp add: maybemap_bottom ident has_type_bottom)
 apply (simp add: maybemap_Nothing ident)
