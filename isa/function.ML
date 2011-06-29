@@ -106,7 +106,7 @@ fun gen_add_halicore_fun
         val tac4 = asm_full_simp_tac (HOL_basic_ss addsimps split_rules) 1
         val tac5 = REPEAT (etac conjE 1)
         val tac6 = TRY (REPEAT_ALL_NEW (rtac conjI) 1)
-        val tac7 = REPEAT (Halicore_Typecheck.typecheck_tac lthy [] 1)
+        val tac7 = TRYALL (Halicore_Typecheck.typecheck_tac lthy [])
         val tac = EVERY [tac0, tac1, tac2, tac3, tac4, tac5, tac6, tac7]
       in
         Goal.prove lthy [] [] prop (K tac)
