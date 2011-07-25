@@ -255,7 +255,7 @@ fun gen_add_halicore_data
             val prop = HOLogic.mk_Trueprop goal
             val rules1 = @{thms has_type_constr_intros}
             val tac0 = rewrite_goals_tac [def_thm]
-            val tac1 = REPEAT_ALL_NEW (match_tac rules1) 1
+            val tac1 = TRY (REPEAT_ALL_NEW (match_tac rules1) 1)
             val tac2 = rtac (has_constr_thm RS @{thm has_type_Vcon}) 1
             val tac3 = REPEAT (ares_tac @{thms have_types.intros} 1)
             val tac = EVERY [tac0, tac1, tac2, tac3]

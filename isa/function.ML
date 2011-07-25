@@ -67,10 +67,11 @@ fun gen_add_halicore_fun
             defs bs (HOLCF_Library.mk_snd t)
     val (fixdef_thms : (term * (string * thm)) list, lthy) = lthy
       |> fold_map Local_Theory.define (defs binds fixpoint)
+    val def_thms = map (snd o snd) fixdef_thms
 
     (* Generate function unfolding rules *)
     fun pair_equalI (thm1, thm2) = @{thm Pair_equalI} OF [thm1, thm2]
-    val tuple_fixdef_thm = foldr1 pair_equalI (map (snd o snd) fixdef_thms)
+    val tuple_fixdef_thm = foldr1 pair_equalI def_thms
     val tuple_unfold_thm =
       Local_Defs.unfold lthy @{thms split_conv}
         (@{thm def_cont_fix_eq} OF [tuple_fixdef_thm, cont_thm])
@@ -85,6 +86,43 @@ fun gen_add_halicore_fun
       ((Binding.suffix_name "_unfold" bind, []), [thm])
     val (thmss, lthy) = lthy
       |> fold_map (Local_Theory.note o unfold_note) unfold_thms
+
+    (* Prove typing rules *)
+    fun mk_has_type (x, t) = @{term has_type} $ x $ t
+    val has_type_thm = 
+      let
+        val goals = map mk_has_type (consts ~~ htypes)
+        val prop = HOLogic.mk_Trueprop (foldr1 HOLogic.mk_conj goals)
+        val adm_rules =
+          @{thms adm_conj adm_has_type cont2cont_fst cont2cont_snd cont_id}
+        val bottom_rules =
+          @{thms fst_strict snd_strict has_type_bottom simp_thms}
+        val split_rules =
+          @{thms split_paired_all fst_conv snd_conv prod.cases}
+        val tac0 = rewrite_goals_tac def_thms
+        val tac1 = rtac (cont_thm RS @{thm cont_fix_ind}) 1
+        val tac2 = SOLVED' (REPEAT_ALL_NEW (resolve_tac adm_rules)) 1
+        val tac3 = SOLVED' (simp_tac (HOL_basic_ss addsimps bottom_rules)) 1
+        val tac4 = asm_full_simp_tac (HOL_basic_ss addsimps split_rules) 1
+        val tac5 = REPEAT (etac conjE 1)
+        val tac6 = TRY (REPEAT_ALL_NEW (rtac conjI) 1)
+        val tac7 = TRYALL (Halicore_Typecheck.typecheck_tac lthy [])
+        val tac = EVERY [tac0, tac1, tac2, tac3, tac4, tac5, tac6, tac7]
+      in
+        Goal.prove lthy [] [] prop (K tac)
+      end
+    fun conjuncts [] thm = []
+      | conjuncts (n::[]) thm = [(n, thm)]
+      | conjuncts (n::ns) thm = let
+          val thmL = thm RS @{thm conjunct1}
+          val thmR = thm RS @{thm conjunct2}
+        in (n, thmL) :: conjuncts ns thmR end
+    val has_type_thms = conjuncts binds has_type_thm
+    val attrib = Attrib.internal (K Halicore_Typecheck.add_type_rule)
+    fun has_type_note (bind, thm) : Attrib.binding * Thm.thm list =
+      ((Binding.prefix_name "has_type_" bind, [attrib]), [thm])
+    val (thmss, lthy) = lthy
+      |> fold_map (Local_Theory.note o has_type_note) has_type_thms
 
     val info = ()
   in

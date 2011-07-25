@@ -59,6 +59,9 @@ halicore_data BinTree a b = Leaf "a" | Node "b" "BinTree a b" "BinTree a b"
 
 subsection {* Defining functions *}
 
+lemma adm_has_type: "cont f \<Longrightarrow> adm (\<lambda>x. f x ::: t)"
+unfolding has_type_def by simp
+
 text {* Right now, the @{text halicore_fun} command parses its input,
 defines the constants, and proves unfolding rules. It doesn't generate
 typing rules or any other theorems yet. *}

@@ -6,6 +6,7 @@ imports
   Halicore_Syntax
   Halicore_Commands
   Halicore_Typecheck
+  Halicore_Prelude
 begin
 
 end
