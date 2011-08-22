@@ -297,6 +297,28 @@ translations -- "output"
   "_hquote (_hlet x (_hunquote t) (_hunquote e) (_hunquote r))"
       <= "CONST Vlet t e (_abs x r)"
 
+subsection {* Propositions *}
+
+nonterminal hprop
+
+syntax
+  "_hpquote" :: "hprop => logic" ("\<guillemotleft>_\<guillemotright>")
+  "_hpequal" :: "[hexp, hexp] => hprop" ("_ =/ _" [50, 50])
+  "_hpbelow" :: "[hexp, hexp] => hprop" ("_ \<sqsubseteq>/ _" [50, 50])
+  "_hptype" :: "[hexp, htyp] => hprop" ("_ ::/ _" [50, 0])
+
+translations -- "input"
+  "_hpquote x" => "x"
+  "_hpequal x y" => "CONST HOL.eq x y"
+  "_hpbelow x y" => "CONST below x y"
+  "_hptype x t" => "CONST has_type x t"
+
+translations -- "output"
+  "x" <= "_hunquote (_hpquote x)"
+  "_hpquote (_hpequal x y)" <= "CONST HOL.eq (_hquote x) (_hquote y)"
+  "_hpquote (_hpbelow x y)" <= "CONST below (_hquote x) (_hquote y)"
+  "_hpquote (_hptype (_hunquote x) (_hunquote t))" <= "CONST has_type x t"
+
 subsection {* Examples *}
 
 term "\<langle>forall a. a \<rightarrow> a\<rangle>"
@@ -314,5 +336,9 @@ term "\<guillemotleft>\<lambda> @a (x::a). f @a x\<guillemotright>"
 term "\<guillemotleft>case (t) v of w {_ \<rightarrow> g}\<guillemotright>"
 term "\<guillemotleft>case (t) v of w {\<lbrace>Foo\<rbrace> (x::a) \<rightarrow> f x}\<guillemotright>"
 term "\<guillemotleft>let x :: t = e in let y :: u = g x in f x y\<guillemotright>"
+term "\<guillemotleft>g x :: f a\<guillemotright>"
+term "\<guillemotleft>x :: f a b \<rightarrow> g a\<guillemotright>"
+term "\<guillemotleft>(let x :: t = e in let y :: u = g x in f x y) :: a\<guillemotright>"
+term "\<guillemotleft>f x = g y\<guillemotright>"
 
 end

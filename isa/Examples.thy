@@ -9,11 +9,11 @@ subsection "Polymorphic identity function"
 
 halicore_fun ident :: "forall a. a \<rightarrow> a" = "\<lambda> @a (x::a). x"
 
-lemma ident: "x ::: a \<Longrightarrow> \<guillemotleft>ident @a x\<guillemotright> = \<guillemotleft>x\<guillemotright>"
+lemma ident: "\<guillemotleft>x :: a\<guillemotright> \<Longrightarrow> \<guillemotleft>ident @a x = x\<guillemotright>"
 unfolding ident_unfold
 by simp
 
-lemma "\<guillemotleft>ident @(a \<rightarrow> a) (ident @a)\<guillemotright> = \<guillemotleft>ident @a\<guillemotright>"
+lemma "\<guillemotleft>ident @(a \<rightarrow> a) (ident @a) = ident @a\<guillemotright>"
 unfolding ident_unfold
 by simp
 
@@ -56,9 +56,9 @@ unfolding Vlam_def
 by (simp add: a f [symmetric, unfolded has_type_def])
 
 lemma V_ext:
-  assumes "f ::: \<langle>a \<rightarrow> b\<rangle>" and "g ::: \<langle>a \<rightarrow> b\<rangle>"
+  assumes "\<guillemotleft>f :: a \<rightarrow> b\<guillemotright>" and "\<guillemotleft>g :: a \<rightarrow> b\<guillemotright>"
   assumes "f \<noteq> \<bottom>" and "g \<noteq> \<bottom>"
-  assumes "\<And>x. x ::: a \<Longrightarrow> \<guillemotleft>f x\<guillemotright> = \<guillemotleft>g x\<guillemotright>"
+  assumes "\<And>x. \<guillemotleft>x :: a\<guillemotright> \<Longrightarrow> \<guillemotleft>f x = g x\<guillemotright>"
   shows "f = g"
 using assms apply -
 apply (erule Tfun_cases, simp)
@@ -72,11 +72,11 @@ unfolding Vlam_def by simp
 lemma
   fixes m :: "\<star> \<rightarrow> \<star>" and a :: "\<star>"
   fixes return bind :: V
-  assumes [type_rule]: "return ::: \<langle>forall a. a \<rightarrow> m a\<rangle>"
-  assumes [type_rule]: "bind ::: \<langle>forall a b. m a \<rightarrow> (a \<rightarrow> m b) \<rightarrow> m b\<rangle>"
+  assumes [type_rule]: "\<guillemotleft>return :: forall a. a \<rightarrow> m a\<guillemotright>"
+  assumes [type_rule]: "\<guillemotleft>bind :: forall a b. m a \<rightarrow> (a \<rightarrow> m b) \<rightarrow> m b\<guillemotright>"
   assumes return_defined: "\<guillemotleft>return @a\<guillemotright> \<noteq> \<bottom>"
-  assumes right_unit: "\<And>xs. xs ::: \<langle>m a\<rangle> \<Longrightarrow> \<guillemotleft>bind @a @a xs (return @a)\<guillemotright> = xs"
-  shows "\<guillemotleft>mk_fmap @m return bind @a @a (ident @a)\<guillemotright> = \<guillemotleft>ident @(m a)\<guillemotright>"
+  assumes right_unit: "\<And>xs. \<guillemotleft>xs :: m a\<guillemotright> \<Longrightarrow> \<guillemotleft>bind @a @a xs (return @a) = xs\<guillemotright>"
+  shows "\<guillemotleft>mk_fmap @m return bind @a @a (ident @a) = ident @(m a)\<guillemotright>"
 unfolding mk_fmap_unfold
 apply simp
 apply (rule V_ext)
@@ -87,7 +87,7 @@ apply (simp add: ident_unfold Vlam_defined)
 apply (rename_tac xs)
 apply simp
 apply (simp add: ident)
-apply (rule_tac P="\<lambda>t. \<guillemotleft>bind @a @a xs t\<guillemotright> = xs" and s="\<guillemotleft>return @a\<guillemotright>" in ssubst)
+apply (rule_tac P="\<lambda>t. \<guillemotleft>bind @a @a xs t = xs\<guillemotright>" and s="\<guillemotleft>return @a\<guillemotright>" in ssubst)
 apply (rule V_ext)
 apply typecheck
 apply typecheck
@@ -97,7 +97,7 @@ apply simp
 apply (erule right_unit)
 done
 
-lemma V_eta: "\<lbrakk>f ::: \<langle>a \<rightarrow> b\<rangle>; f \<noteq> \<bottom>\<rbrakk> \<Longrightarrow> \<guillemotleft>\<lambda>(x::a). f x\<guillemotright> = f"
+lemma V_eta: "\<lbrakk>\<guillemotleft>f :: a \<rightarrow> b\<guillemotright>; f \<noteq> \<bottom>\<rbrakk> \<Longrightarrow> \<guillemotleft>\<lambda>(x::a). f x\<guillemotright> = f"
 apply (erule Tfun_cases, simp)
 apply simp
 done
@@ -105,11 +105,11 @@ done
 lemma
   fixes m :: "\<star> \<rightarrow> \<star>" and a :: "\<star>"
   fixes return bind :: V
-  assumes [type_rule]: "return ::: \<langle>forall a. a \<rightarrow> m a\<rangle>"
-  assumes [type_rule]: "bind ::: \<langle>forall a b. m a \<rightarrow> (a \<rightarrow> m b) \<rightarrow> m b\<rangle>"
+  assumes [type_rule]: "\<guillemotleft>return :: forall a. a \<rightarrow> m a\<guillemotright>"
+  assumes [type_rule]: "\<guillemotleft>bind :: forall a b. m a \<rightarrow> (a \<rightarrow> m b) \<rightarrow> m b\<guillemotright>"
   assumes return_defined: "\<guillemotleft>return @a\<guillemotright> \<noteq> \<bottom>"
-  assumes right_unit: "\<And>xs. xs ::: \<langle>m a\<rangle> \<Longrightarrow> \<guillemotleft>bind @a @a xs (return @a)\<guillemotright> = xs"
-  shows "\<guillemotleft>mk_fmap @m return bind @a @a (ident @a)\<guillemotright> = \<guillemotleft>ident @(m a)\<guillemotright>"
+  assumes right_unit: "\<And>xs. \<guillemotleft>xs :: m a\<guillemotright> \<Longrightarrow> \<guillemotleft>bind @a @a xs (return @a) = xs\<guillemotright>"
+  shows "\<guillemotleft>mk_fmap @m return bind @a @a (ident @a) = ident @(m a)\<guillemotright>"
 unfolding mk_fmap_unfold
 apply simp
 apply (simp add: ident)
@@ -145,7 +145,7 @@ lemma Maybe_cases:
   assumes "y ::: \<langle>Maybe a\<rangle>"
   obtains "y = \<bottom>"
   | "y = \<guillemotleft>Nothing @a\<guillemotright>"
-  | x where "x ::: a" and "y = \<guillemotleft>Just @a x\<guillemotright>"
+  | x where "\<guillemotleft>x :: a\<guillemotright>" and "y = \<guillemotleft>Just @a x\<guillemotright>"
 using assms unfolding Maybe_unfold
 apply (simp add: Nothing_eq_Vcon Just_eq_Vcon)
 apply (auto elim!: has_type_Tdata_elims)
@@ -185,25 +185,25 @@ apply (simp add: Vcase_bottom)
 done
 
 lemma maybemap_beta:
-  assumes [type_rule]: "f ::: \<langle>a \<rightarrow> b\<rangle>" "m ::: \<langle>Maybe a\<rangle>"
+  assumes [type_rule]: "\<guillemotleft>f :: a \<rightarrow> b\<guillemotright>" "\<guillemotleft>m :: Maybe a\<guillemotright>"
   shows "\<guillemotleft>maybemap @a @b f m\<guillemotright> = \<guillemotleft>case (Maybe b) m of w
     {Nothing \<rightarrow> Nothing @b; Just (x::a) \<rightarrow> Just @b (f x)}\<guillemotright>"
 unfolding maybemap_unfold
 by simp
 
 lemma maybemap_Nothing:
-  assumes [type_rule]: "f ::: \<langle>a \<rightarrow> b\<rangle>"
-  shows "\<guillemotleft>maybemap @a @b f (Nothing @a)\<guillemotright> = \<guillemotleft>Nothing @b\<guillemotright>"
+  assumes [type_rule]: "\<guillemotleft>f :: a \<rightarrow> b\<guillemotright>"
+  shows "\<guillemotleft>maybemap @a @b f (Nothing @a) = Nothing @b\<guillemotright>"
 by (simp add: maybemap_beta case_Maybe)
 
 lemma maybemap_Just:
-  assumes [type_rule]: "f ::: \<langle>a \<rightarrow> b\<rangle>"
-  assumes [type_rule]: "x ::: \<langle>a\<rangle>"
-  shows "\<guillemotleft>maybemap @a @b f (Just @a x)\<guillemotright> = \<guillemotleft>Just @b (f x)\<guillemotright>"
+  assumes [type_rule]: "\<guillemotleft>f :: a \<rightarrow> b\<guillemotright>"
+  assumes [type_rule]: "\<guillemotleft>x :: a\<guillemotright>"
+  shows "\<guillemotleft>maybemap @a @b f (Just @a x) = Just @b (f x)\<guillemotright>"
 by (simp add: maybemap_beta case_Maybe)
 
 lemma maybemap_ident:
-  "\<guillemotleft>maybemap @a @a (ident @a)\<guillemotright> = \<guillemotleft>ident @(Maybe a)\<guillemotright>"
+  "\<guillemotleft>maybemap @a @a (ident @a) = ident @(Maybe a)\<guillemotright>"
 apply (rule V_ext)
 apply typecheck
 apply typecheck
@@ -216,9 +216,9 @@ apply (simp add: maybemap_Just ident)
 done
 
 lemma maybemap_maybemap:
-  assumes [type_rule]: "m ::: \<langle>Maybe a\<rangle>" "f ::: \<langle>a \<rightarrow> b\<rangle>" "g ::: \<langle>b \<rightarrow> c\<rangle>"
-  shows "\<guillemotleft>maybemap @b @c g (maybemap @a @b f m)\<guillemotright> =
-    \<guillemotleft>maybemap @a @c (\<lambda>(x::a). g (f x)) m\<guillemotright>"
+  assumes [type_rule]: "\<guillemotleft>m :: Maybe a\<guillemotright>" "\<guillemotleft>f :: a \<rightarrow> b\<guillemotright>" "\<guillemotleft>g :: b \<rightarrow> c\<guillemotright>"
+  shows "\<guillemotleft>maybemap @b @c g (maybemap @a @b f m) =
+    maybemap @a @c (\<lambda>(x::a). g (f x)) m\<guillemotright>"
 apply (rule Maybe_cases [OF assms(1)])
 apply (simp add: maybemap_bottom)
 apply (simp add: maybemap_Nothing)
