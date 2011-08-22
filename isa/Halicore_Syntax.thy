@@ -59,10 +59,12 @@ translations -- "output"
 subsection {* Application of values to types *}
 
 syntax
-  "_hvtapp" :: "hexp => htyp => hexp"  ("(1_/ @_)" [999, 1000] 999)
+  "_hvtapp" :: "hexp => htyp => hexp"  ("(1_{_})" [1000, 0] 1000)
+  "_hvtapp_old" :: "hexp => htyp => hexp"  ("(1_/ @_)" [999, 1000] 999)
 
 translations -- "input"
   "_hvtapp x t" => "CONST Vtapp x t"
+  "_hvtapp_old x t" => "CONST Vtapp x t"
 
 translations -- "output"
   "_hquote (_hvtapp (_hunquote x) (_hunquote t))" <= "CONST Vtapp x t"
@@ -340,5 +342,6 @@ term "\<guillemotleft>g x :: f a\<guillemotright>"
 term "\<guillemotleft>x :: f a b \<rightarrow> g a\<guillemotright>"
 term "\<guillemotleft>(let x :: t = e in let y :: u = g x in f x y) :: a\<guillemotright>"
 term "\<guillemotleft>f x = g y\<guillemotright>"
+term "\<guillemotleft>f @a (g @b) (h x @(t c) @d) y\<guillemotright>"
 
 end
