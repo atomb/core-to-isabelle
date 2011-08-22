@@ -186,7 +186,7 @@ done
 
 lemma maybemap_beta:
   assumes [type_rule]: "\<guillemotleft>f :: a \<rightarrow> b\<guillemotright>" "\<guillemotleft>m :: Maybe a\<guillemotright>"
-  shows "\<guillemotleft>maybemap @a @b f m\<guillemotright> = \<guillemotleft>case (Maybe b) m of w
+  shows "\<guillemotleft>maybemap @a @b f m\<guillemotright> = \<guillemotleft>case (Maybe b) m of
     {Nothing \<rightarrow> Nothing @b; Just (x::a) \<rightarrow> Just @b (f x)}\<guillemotright>"
 unfolding maybemap_unfold
 by simp

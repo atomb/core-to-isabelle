@@ -202,6 +202,8 @@ syntax
   "_hmunquote" :: "logic => hmatch"  ("\<lbrace>_\<rbrace>")
   "_hcase"     :: "htyp => hexp => id => hmatch => hexp"
       ("case '(_')/ _/ of _/ {(_)}")
+  "_hcase'"     :: "htyp => hexp => hmatch => hexp"
+      ("case '(_')/ _/ of/ {(_)}")
   "_hwild"     :: "hexp => hmatch" ("('_ \<rightarrow>/ _)")
   "_hmatch"    :: "hpat => hexp => hmatch => hmatch" ("(_ \<rightarrow>/ _);/ _")
   "_hmatch1"   :: "hpat => hexp => hmatch" ("(_ \<rightarrow>/ _)")
@@ -216,6 +218,7 @@ translations -- "input"
   "_hmunquote x" => "x"
   "_htag x" => "x"
   "_hcase t v w m" => "CONST Vcase t v (_abs w m)"
+  "_hcase' t v m" == "_hcase t v _idtdummy m"
   "_hmatch1 p r" == "_hmatch p r (CONST Mnone)"
   "_hmatch p r m" => "_hbranch p (CONST Bnone r) m"
   "_hbranch (_hpat p (_hvarg x t)) b m"
