@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Language.Core.Isabelle where
 
 import Prelude hiding ( exp )
@@ -204,7 +205,7 @@ processExp e = processExp' False e
 
 processAlt :: Alt -> Doc
 processAlt (Acon (_, _, dcon) [] vbinds exp) =
-  z2d dcon <+>
+  isaDcon dcon <+>
   hang 2 (hsep (map processVbind vbinds) <+> rightArrow </>
   processExp exp)
 processAlt (Adefault exp) = underscore <+> rightArrow <+> processExp exp
@@ -212,3 +213,8 @@ processAlt alt = error $ "Alt not implemented: " ++ show alt
 
 processVbind :: Vbind -> Doc
 processVbind ((_,_,var), ty) = parens (z2d var <+> dcolon <+> showTy ty)
+
+isaDcon :: Dcon -> Doc
+isaDcon "ZMZN" = text "Nil"
+isaDcon "ZC" = text "Cons"
+isaDcon dcon = z2d dcon
