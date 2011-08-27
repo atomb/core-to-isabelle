@@ -1,7 +1,8 @@
 module Language.Core.Isabelle where
 
 import Prelude hiding ( exp )
-import Language.Core.Syntax
+import Language.Core.Core
+import Language.Core.Printer () -- for show instances
 
 import Text.PrettyPrint.Leijen.Text
 
@@ -10,6 +11,7 @@ import Data.Text.Lazy ( toStrict )
 import qualified Data.Text.Lazy.Encoding as E
 import qualified Data.ByteString.Lazy.Char8 as L
 import qualified Text.Encoding.Z as Z
+import Data.List ( isSuffixOf )
 
 -- * Conversion Functions
 bs2t :: L.ByteString -> T.Text
@@ -35,7 +37,7 @@ header name =
   s2d "begin" <> line
 
 unVbind :: Vbind -> Doc
-unVbind ((_, _, v), _) = z2d v
+unVbind (v, _) = s2d v
 
 -- * Literals
 rightArrow :: Doc
@@ -105,8 +107,8 @@ processVdefg (Rec vdefs)   = halicore_fun <$>
   line
 
 processVdef :: Vdef -> Doc
-processVdef (Vdef _ (_, _, name) ty exp) =
-  z2d name <+> dcolon <+>
+processVdef (Vdef ((_, name), ty, exp)) =
+  s2d name <+> dcolon <+>
   align (dquotes (showTy ty) <+> equals) </>
   indent 4 (dquotes (processExp exp))
 
@@ -117,8 +119,8 @@ processTdefs tdefs = halicore_data <$>
   cat (punctuate (line<>line<>andDoc<>line) (map processTdef tdefs))
 
 processTdef :: Tdef -> Doc
-processTdef (Data (_, _, name) tbinds cdefs) =
-  z2d name <+>
+processTdef (Data (_, name) tbinds cdefs) =
+  s2d name <+>
   hsep (map processTbindQuoted tbinds) <$>
   indent 4 (equals <+> p (map processCdef cdefs))
   where
@@ -129,15 +131,15 @@ processTdef (Data (_, _, name) tbinds cdefs) =
 processTdef (Newtype {}) = error "newtype not yet implemented"
 
 processTbindQuoted :: Tbind -> Doc
-processTbindQuoted (tvar, Klifted)       = z2d tvar
+processTbindQuoted (tvar, Klifted)       = s2d tvar
 processTbindQuoted (tvar, k@(Karrow {})) =
-  parens (z2d tvar </>
+  parens (s2d tvar </>
   dcolon <+> dquotes (showKind k))
 
 processTbind :: Tbind -> Doc
-processTbind (tvar, Klifted)       = z2d tvar
+processTbind (tvar, Klifted)       = s2d tvar
 processTbind (tvar, k@(Karrow {})) =
-  parens (z2d tvar </>
+  parens (s2d tvar </>
   dcolon <+> showKind k)
 
 showKind :: Kind -> Doc
@@ -148,19 +150,20 @@ showKind (Karrow k1 k2) = showKind k1 <+> rightArrow <+> showKind k2
 showKind (Keq _ _)      = error "equality kinds not supported"
 
 processCdef :: Cdef -> Doc
-processCdef (Constr (_, _, name) [] [])  = z2d name
-processCdef (Constr (_, _, name) [] tys) = z2d name <+>
+processCdef (Constr (_, name) [] [])  = s2d name
+processCdef (Constr (_, name) [] tys) = s2d name <+>
   sep (map (dquotes.showTy) tys)
 
 showTy :: Ty -> Doc
 showTy = showTy' False
   where
   showTy' :: Bool -> Ty -> Doc
-  showTy' _ (Tvar v)               = z2d v
+  showTy' _ (Tvar v)               = s2d v
+  showTy' b (Tapp (Tapp (Tcon (_, t)) t1) t2)
+    | "(->)" `isSuffixOf` t =
+      parens (showTy' b t1 <+> rightArrow <+> showTy' b t2)
   showTy' b (Tapp t1 t2)           = parens (showTy' b t1 <+> showTy' b t2)
-  showTy' b (Tarrow t1 t2)         =
-    parens (showTy' b t1 <+> rightArrow <+> showTy' b t2)
-  showTy' _ (Tcon (_, _, t))       = z2d t
+  showTy' b (Tcon (_, t)) = s2d t
   showTy' True (Tforall tbind ty)  =
     processTbind tbind <> spaceOrDot ty <> showTy' True ty
   showTy' False (Tforall tbind ty) =
@@ -174,28 +177,28 @@ processExp :: Exp -> Doc
 processExp e = processExp' False e
   where
   spaceOrDot (Lam {})  = space
-  spaceOrDot (Lamt {}) = space
   spaceOrDot _         = dot <> space
   lambdaOrEmpty True  = empty
   lambdaOrEmpty False = lambda
   nest' True  = id
   nest' False = nest 3
   processExp' :: Bool -> Exp -> Doc
-  processExp' _ (Var  (_, _, v)) = z2d v
-  processExp' _ (Dcon (_, _, d)) = z2d d
+  processExp' _ (Var  (_, v)) = s2d v
+  processExp' _ (Dcon (_, d)) = s2d d
   processExp' _ (Lit  {})        = error "Embedding literals not yet supported."
   processExp' b (App  exp1 exp2) =
     parens (processExp' b exp1 <+> processExp' b exp2)
   processExp' b (Appt exp ty)    =
     parens (processExp' b exp  <+> at <> showTy ty)
-  processExp' b (Lam bind exp)   =
+  processExp' b (Lam (Vb bind) exp)   =
     lambdaOrEmpty b <+> nest' b (processVbind bind <> spaceOrDot exp <$>
     processExp' True exp)
-  processExp' b (Lamt bind exp)  =
+  processExp' b (Lam (Tb bind) exp)  =
     lambdaOrEmpty b <+> nest' b (at <> processTbind bind <> spaceOrDot exp <$>
     processExp' True exp)
   processExp' b (Case exp vbind ty alts) =
     caseDoc <+> parens (showTy ty) <+>
+    -- TODO: make printing unVbind vbind optional
     processExp' b exp <+> ofDoc <+> unVbind vbind <+> lbrace <$>
         (indent 4 (cat (punctuate (semi<>space) (map processAlt alts))))
     <$> rbrace
@@ -203,12 +206,12 @@ processExp e = processExp' False e
 -- TODO: Finish this definition
 
 processAlt :: Alt -> Doc
-processAlt (Acon (_, _, dcon) [] vbinds exp) =
-  z2d dcon <+>
+processAlt (Acon (_, dcon) [] vbinds exp) =
+  s2d dcon <+>
   hang 2 (hsep (map processVbind vbinds) <+> rightArrow </>
   processExp exp)
 processAlt (Adefault exp) = underscore <+> rightArrow <+> processExp exp
 processAlt alt = error $ "Alt not implemented: " ++ show alt
 
 processVbind :: Vbind -> Doc
-processVbind ((_,_,var), ty) = parens (z2d var <+> dcolon <+> showTy ty)
+processVbind (var, ty) = parens (s2d var <+> dcolon <+> showTy ty)

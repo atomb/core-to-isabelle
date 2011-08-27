@@ -23,8 +23,10 @@ executable core-to-isabelle
 executable core2isa
     hs-source-dirs:      src
     main-is:             Core2Isa.hs
+    if os(darwin)
+       ghc-options:      -optl-Wl,-dead_strip
     ghc-options:         -Wall
-    build-depends:       core == 0.5.*,
+    build-depends:       extcore == 1.0.*,
                          filepath == 1.2.*,
                          bytestring == 0.9.*,
                          text == 0.11.*,
