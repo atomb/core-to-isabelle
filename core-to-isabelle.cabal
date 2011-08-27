@@ -20,9 +20,9 @@ executable core-to-isabelle
                          ghc-paths,
                          process == 1.0.*
 
-executable core2isa
+executable hcr2thy
     hs-source-dirs:      src
-    main-is:             Core2Isa.hs
+    main-is:             Hcr2Thy.hs
     if os(darwin)
        ghc-options:      -optl-Wl,-dead_strip
     ghc-options:         -Wall
