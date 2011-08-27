@@ -2,13 +2,9 @@ module MulitpleDefinitions where
 
 import Prelude ()
 
-data List a = Nil | Cons a (List a)
-
 data Color = Red | Green | Blue
 
 data Maybe a = Nothing | Just a
-
-data Unit = Unit
 
 data Bool = True | False
 
