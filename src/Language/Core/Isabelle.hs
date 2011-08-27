@@ -183,7 +183,7 @@ processExp e = processExp' False e
   nest' False = nest 3
   processExp' :: Bool -> Exp -> Doc
   processExp' _ (Var  (_, _, v)) = z2d v
-  processExp' _ (Dcon (_, _, d)) = z2d d
+  processExp' _ (Dcon (_, _, d)) = isaDcon d
   processExp' _ (Lit  {})        = error "Embedding literals not yet supported."
   processExp' b (App  exp1 exp2) =
     parens (processExp' b exp1 <+> processExp' b exp2)
