@@ -3,6 +3,7 @@ module Language.Core.Isabelle where
 
 import Prelude hiding ( exp )
 import Language.Core.Core
+import Language.Core.CoreUtils ( freeVarss )
 import Language.Core.Printer () -- for show instances
 
 import Text.PrettyPrint.Leijen.Text
@@ -43,6 +44,11 @@ header name =
 
 unVbind :: Vbind -> Doc
 unVbind (v, _) = z2d v
+
+altToExp :: Alt -> Exp
+altToExp (Acon _ _ _ r) = r
+altToExp (Alit _ r    ) = r
+altToExp (Adefault r  ) = r
 
 -- * Literals
 rightArrow :: Doc
@@ -181,8 +187,8 @@ showTy = showTy' False
 processExp :: Exp -> Doc
 processExp e = processExp' False e
   where
-  spaceOrDot (Lam {})  = space
-  spaceOrDot _         = dot <> space
+  spaceOrDot (Lam {})  = empty
+  spaceOrDot _         = dot
   lambdaOrEmpty True  = empty
   lambdaOrEmpty False = lambda
   nest' True  = id
@@ -203,10 +209,14 @@ processExp e = processExp' False e
     processExp' True exp)
   processExp' b (Case exp vbind ty alts) =
     caseDoc <+> parens (showTy ty) <+>
-    -- TODO: make printing unVbind vbind optional
-    processExp' b exp <+> ofDoc <+> unVbind vbind <+> lbrace <$>
-        (indent 4 (cat (punctuate (semi<>space) (map processAlt alts))))
+    processExp' b exp <+> ofDoc <+> vbindDoc <+> lbrace <$>
+        (indent 4 (cat (punctuate semi (map processAlt alts))))
     <$> rbrace
+    where
+    vars = map snd (freeVarss (map altToExp alts))
+    vbindDoc
+      | fst vbind `elem` vars = unVbind vbind
+      | otherwise             = empty
   processExp' _ exp              = error $ "Not implemented: " ++ show exp
 -- TODO: Finish this definition
 
