@@ -59,10 +59,12 @@ translations -- "output"
 subsection {* Application of values to types *}
 
 syntax
-  "_hvtapp" :: "hexp => htyp => hexp"  ("(1_/ @_)" [999, 1000] 999)
+  "_hvtapp" :: "hexp => htyp => hexp"  ("(1_{_})" [1000, 0] 1000)
+  "_hvtapp_old" :: "hexp => htyp => hexp"  ("(1_/ @_)" [999, 1000] 999)
 
 translations -- "input"
   "_hvtapp x t" => "CONST Vtapp x t"
+  "_hvtapp_old x t" => "CONST Vtapp x t"
 
 translations -- "output"
   "_hquote (_hvtapp (_hunquote x) (_hunquote t))" <= "CONST Vtapp x t"
@@ -200,6 +202,8 @@ syntax
   "_hmunquote" :: "logic => hmatch"  ("\<lbrace>_\<rbrace>")
   "_hcase"     :: "htyp => hexp => id => hmatch => hexp"
       ("case '(_')/ _/ of _/ {(_)}")
+  "_hcase'"     :: "htyp => hexp => hmatch => hexp"
+      ("case '(_')/ _/ of/ {(_)}")
   "_hwild"     :: "hexp => hmatch" ("('_ \<rightarrow>/ _)")
   "_hmatch"    :: "hpat => hexp => hmatch => hmatch" ("(_ \<rightarrow>/ _);/ _")
   "_hmatch1"   :: "hpat => hexp => hmatch" ("(_ \<rightarrow>/ _)")
@@ -214,6 +218,7 @@ translations -- "input"
   "_hmunquote x" => "x"
   "_htag x" => "x"
   "_hcase t v w m" => "CONST Vcase t v (_abs w m)"
+  "_hcase' t v m" == "_hcase t v _idtdummy m"
   "_hmatch1 p r" == "_hmatch p r (CONST Mnone)"
   "_hmatch p r m" => "_hbranch p (CONST Bnone r) m"
   "_hbranch (_hpat p (_hvarg x t)) b m"
@@ -297,6 +302,28 @@ translations -- "output"
   "_hquote (_hlet x (_hunquote t) (_hunquote e) (_hunquote r))"
       <= "CONST Vlet t e (_abs x r)"
 
+subsection {* Propositions *}
+
+nonterminal hprop
+
+syntax
+  "_hpquote" :: "hprop => logic" ("\<guillemotleft>_\<guillemotright>")
+  "_hpequal" :: "[hexp, hexp] => hprop" ("_ =/ _" [50, 50])
+  "_hpbelow" :: "[hexp, hexp] => hprop" ("_ \<sqsubseteq>/ _" [50, 50])
+  "_hptype" :: "[hexp, htyp] => hprop" ("_ ::/ _" [50, 0])
+
+translations -- "input"
+  "_hpquote x" => "x"
+  "_hpequal x y" => "CONST HOL.eq x y"
+  "_hpbelow x y" => "CONST below x y"
+  "_hptype x t" => "CONST has_type x t"
+
+translations -- "output"
+  "x" <= "_hunquote (_hpquote x)"
+  "_hpquote (_hpequal x y)" <= "CONST HOL.eq (_hquote x) (_hquote y)"
+  "_hpquote (_hpbelow x y)" <= "CONST below (_hquote x) (_hquote y)"
+  "_hpquote (_hptype (_hunquote x) (_hunquote t))" <= "CONST has_type x t"
+
 subsection {* Examples *}
 
 term "\<langle>forall a. a \<rightarrow> a\<rangle>"
@@ -314,5 +341,10 @@ term "\<guillemotleft>\<lambda> @a (x::a). f @a x\<guillemotright>"
 term "\<guillemotleft>case (t) v of w {_ \<rightarrow> g}\<guillemotright>"
 term "\<guillemotleft>case (t) v of w {\<lbrace>Foo\<rbrace> (x::a) \<rightarrow> f x}\<guillemotright>"
 term "\<guillemotleft>let x :: t = e in let y :: u = g x in f x y\<guillemotright>"
+term "\<guillemotleft>g x :: f a\<guillemotright>"
+term "\<guillemotleft>x :: f a b \<rightarrow> g a\<guillemotright>"
+term "\<guillemotleft>(let x :: t = e in let y :: u = g x in f x y) :: a\<guillemotright>"
+term "\<guillemotleft>f x = g y\<guillemotright>"
+term "\<guillemotleft>f @a (g @b) (h x @(t c) @d) y\<guillemotright>"
 
 end
