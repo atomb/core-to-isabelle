@@ -21,7 +21,7 @@ SRC = $(ISABELLE_HOME)/src
 OUT = $(ISABELLE_OUTPUT)
 LOG = $(OUT)/log
 
-USEDIR = $(ISABELLE_TOOL) usedir -b -g true -v true -i true -V outline=/proof,/ML -d pdf -P "http://isabelle.in.tum.de/library/" # -D generated
+USEDIR = $(ISABELLE_TOOL) usedir -b -g true -v true -i true -V outline=/proof,/ML -d false -P "http://isabelle.in.tum.de/library/" # -D generated
 
 # Replace previous line with this one to compile Halicore without pdf docs
 # USEDIR = $(ISABELLE_TOOL) usedir -b -g true
