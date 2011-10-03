@@ -275,6 +275,17 @@ lemma list_all2_intros:
   "\<lbrakk>P x y; list_all2 P xs ys\<rbrakk> \<Longrightarrow> list_all2 P (x # xs) (y # ys)"
 by simp_all
 
+lemma list_all2_induct
+  [consumes 1, case_names Nil Cons, induct set: list_all2]:
+  assumes P: "list_all2 P xs ys"
+  assumes Nil: "R [] []"
+  assumes Cons: "\<And>x xs y ys. \<lbrakk>P x y; R xs ys\<rbrakk> \<Longrightarrow> R (x # xs) (y # ys)"
+  shows "R xs ys"
+using P
+apply (induct xs arbitrary: ys)
+apply (simp add: Nil, case_tac ys, simp, simp add: Cons)
+done
+
 lemma step_refl: "step t t"
 by (induct t) (rule step.intros list_all2_intros | assumption)+
 
@@ -300,12 +311,6 @@ done
 
 text {* The reduction relations are confluent. *}
 
-lemma args_lift: "args_lift i = map (ty_lift i)"
-by (rule ext, induct_tac x, simp_all)
-
-lemma cons_lift: "cons_lift i = map (args_lift i)"
-by (rule ext, induct_tac x, simp_all)
-
 lemma step_ty_lift:
   assumes "step t t'"
   shows "step (ty_lift i t) (ty_lift i t')"
@@ -315,18 +320,9 @@ apply (simp add: ty_lift_ty_subst_0 step.unfold)
 apply (simp add: ty_lift_ty_subst_0 step.beta)
 apply (simp_all add: step.intros)
 apply (rule step.TyData)
-apply (simp add: args_lift cons_lift)
-apply (simp add: list_all2_map1 list_all2_map2)
-apply (erule list_all2_mono [rule_format, COMP swap_prems_rl])
-apply (erule list_all2_mono [rule_format, COMP swap_prems_rl])
-apply simp
+apply (erule list_all2_induct, simp, simp)
+apply (erule list_all2_induct, simp, simp)
 done
-
-lemma args_subst: "args_subst i ts x = map (\<lambda>t. ty_subst i t x) ts"
-by (induct ts, simp_all)
-
-lemma cons_subst: "cons_subst i tss x = map (\<lambda>ts. args_subst i ts x) tss"
-by (induct tss, simp_all)
 
 lemma step_ty_subst:
   assumes t: "step t t'"
@@ -337,22 +333,8 @@ apply (induct arbitrary: i u u' set: step)
 apply (simp_all add: ty_subst_ty_subst_0 step.intros step_ty_lift)
 apply (rule_tac x=n and i=i in skip_cases, simp, simp add: step.TyVar)
 apply (rule step.TyData)
-apply (simp add: args_subst cons_subst)
-apply (simp add: list_all2_map1 list_all2_map2)
-apply (erule list_all2_mono [rule_format, COMP swap_prems_rl])
-apply (erule list_all2_mono [rule_format, COMP swap_prems_rl])
-apply simp
-done
-
-lemma list_all2_induct
-  [consumes 1, case_names Nil Cons, induct set: list_all2]:
-  assumes P: "list_all2 P xs ys"
-  assumes Nil: "R [] []"
-  assumes Cons: "\<And>x xs y ys. \<lbrakk>P x y; R xs ys\<rbrakk> \<Longrightarrow> R (x # xs) (y # ys)"
-  shows "R xs ys"
-using P
-apply (induct xs arbitrary: ys)
-apply (simp add: Nil, case_tac ys, simp, simp add: Cons)
+apply (erule list_all2_induct, simp, simp)
+apply (erule list_all2_induct, simp, simp)
 done
 
 lemma list_all2_list_all2_implies_list_all2:
@@ -413,13 +395,13 @@ text {* Relation @{text steps} is the reflexive, transitive closure of
 @{text step}. *}
 
 inductive steps :: "ty \<Rightarrow> ty \<Rightarrow> bool"
-  for t where refl: "steps t t"
-  | step: "\<lbrakk>steps t u; step u u'\<rbrakk> \<Longrightarrow> steps t u'"
+  for t where steps_refl: "steps t t"
+  | steps_step: "\<lbrakk>steps t u; step u u'\<rbrakk> \<Longrightarrow> steps t u'"
 
 lemma steps_trans:
   assumes "steps t u"
   shows "steps u v \<Longrightarrow> steps t v"
-by (induct set: steps, fact, erule (1) steps.step)
+by (induct set: steps, fact, erule (1) steps_step)
 
 lemma steps_has_kind:
   assumes "steps t t'" and "has_kind \<Gamma> t k"
@@ -434,8 +416,8 @@ lemma steps_ty_lift:
   shows "steps (ty_lift i t) (ty_lift i t')"
 using assms
 apply (induct set: steps)
-apply (rule steps.refl)
-apply (erule steps.step)
+apply (rule steps_refl)
+apply (erule steps_step)
 apply (erule step_ty_lift)
 done
 
@@ -444,11 +426,11 @@ lemma steps_step_confluent:
   shows "\<exists>t'. step a t' \<and> steps b t'"
 using assms
 apply (induct set: steps)
-apply (rule exI, erule conjI [OF _ steps.refl])
+apply (rule exI, erule conjI [OF _ steps_refl])
 apply clarsimp
 apply (drule (1) step_confluent, clarsimp)
 apply (rule exI, erule conjI)
-apply (erule (1) steps.step)
+apply (erule (1) steps_step)
 done
 
 lemma steps_confluent:
@@ -456,11 +438,11 @@ lemma steps_confluent:
   shows "\<exists>t'. steps a t' \<and> steps b t'"
 using assms
 apply (induct set: steps)
-apply (rule exI, erule conjI [OF _ steps.refl])
+apply (rule exI, erule conjI [OF _ steps_refl])
 apply clarsimp
 apply (drule (1) steps_step_confluent, clarsimp)
 apply (rule exI, erule conjI)
-apply (erule (1) steps.step)
+apply (erule (1) steps_step)
 done
 
 lemma steps_ty_subst:
@@ -470,10 +452,10 @@ using assms(1)
 apply (induct set: steps)
 using assms(2)
 apply (induct set: steps)
-apply (rule steps.refl)
-apply (erule steps.step)
+apply (rule steps_refl)
+apply (erule steps_step)
 apply (erule step_ty_subst [OF step_refl])
-apply (erule steps.step)
+apply (erule steps_step)
 apply (erule step_ty_subst [OF _ step_refl])
 done
 
@@ -484,10 +466,10 @@ using assms(1)
 apply (induct set: steps)
 using assms(2)
 apply (induct set: steps)
-apply (rule steps.refl)
-apply (erule steps.step)
+apply (rule steps_refl)
+apply (erule steps_step)
 apply (erule step.TyApp [OF step_refl])
-apply (erule steps.step)
+apply (erule steps_step)
 apply (erule step.TyApp [OF _ step_refl])
 done
 
@@ -496,9 +478,9 @@ lemma steps_TyAll_dest:
   shows "\<exists>t'. u = TyAll k t' \<and> steps t t'"
 using assms
 apply (induct set: steps)
-apply (simp add: steps.refl)
+apply (simp add: steps_refl)
 apply (clarsimp elim!: step_elims)
-apply (erule (1) steps.step)
+apply (erule (1) steps_step)
 done
 
 
@@ -511,7 +493,7 @@ inductive conv :: "ty \<Rightarrow> ty \<Rightarrow> bool"
   where steps: "\<lbrakk>steps t1 u; steps t2 u\<rbrakk> \<Longrightarrow> conv t1 t2"
 
 lemma conv_refl: "conv t t"
-by (rule conv.steps [OF steps.refl steps.refl])
+by (rule conv.steps [OF steps_refl steps_refl])
 
 lemma conv_sym: "conv t u \<Longrightarrow> conv u t"
 by (erule conv.induct, erule (1) conv.steps)
@@ -525,14 +507,14 @@ apply (erule (1) steps_trans)
 done
 
 lemma conv_unfold: "conv (TyFix k t) (ty_subst 0 t (TyFix k t))"
-apply (rule conv.intros [OF _ steps.refl])
-apply (rule steps.step [OF steps.refl])
+apply (rule conv.intros [OF _ steps_refl])
+apply (rule steps_step [OF steps_refl])
 apply (rule step.unfold [OF step_refl])
 done
 
 lemma conv_beta: "conv (TyApp (TyLam k t) u) (ty_subst 0 t u)"
-apply (rule conv.intros [OF _ steps.refl])
-apply (rule steps.step [OF steps.refl])
+apply (rule conv.intros [OF _ steps_refl])
+apply (rule steps_step [OF steps_refl])
 apply (rule step.beta [OF step_refl step_refl])
 done
 
@@ -582,13 +564,13 @@ lemma ty_injective_steps_dest:
   "\<lbrakk>steps (TyApp t u) ty; ty_injective t\<rbrakk>
     \<Longrightarrow> \<exists>t' u'. ty = TyApp t' u' \<and> steps t t' \<and> steps u u'"
 apply (induct set: steps)
-apply (simp add: steps.refl)
+apply (simp add: steps_refl)
 apply clarsimp
 apply (drule (1) steps_ty_injective [COMP swap_prems_rl])
 apply (drule (1) ty_injective_step_dest, clarsimp)
 apply (rule conjI)
-apply (erule (1) steps.step)
-apply (erule (1) steps.step)
+apply (erule (1) steps_step)
+apply (erule (1) steps_step)
 done
 
 lemma ty_injective_conv_dest:
