@@ -288,6 +288,19 @@ apply (cut_tac ty_of_fun_correct [OF f])
 apply (simp add: fun_has_ty_def the_kind_kstar_def)
 done
 
+definition Tdata :: "string \<Rightarrow> kstar list list \<Rightarrow> kstar"
+  where "Tdata s xss = of_ty (TyData s (map (map to_ty) xss))"
+
+lemma to_ty_Tdata: "to_ty (Tdata s xss) = TyData s (map (map to_ty) xss)"
+unfolding Tdata_def
+apply (rule of_ty_inverse)
+apply (simp add: the_kind_kstar_def)
+apply (rule has_kind.TyData)
+apply (subst the_kind_kstar_def [where i="TYPE(kstar)", symmetric])
+apply (induct xss, simp, rename_tac xs xss)
+apply (induct_tac xs, simp_all add: has_kind_to_ty)
+done
+
 subsection {* Parallel substitution and simultaneous continuity *}
 
 primrec tlifts :: "nat \<Rightarrow> ty \<Rightarrow> ty" where
