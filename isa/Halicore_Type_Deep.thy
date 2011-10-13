@@ -12,14 +12,15 @@ datatype base = TyFun | TyInt | TyChar
 
 type_synonym tag = string
 
+datatype visibility = Transparent | Opaque
+
 datatype ty
   = TyVar nat
   | TyBase base
   | TyApp ty ty
   | TyAll kind ty
   | TyLam kind ty
-  | TyFix kind ty
-  | TyRec kind ty
+  | TyFix visibility kind ty
   | TyData "ty list list"
 
 
@@ -49,8 +50,7 @@ where TyVar: "mapsto \<Gamma> n k \<Longrightarrow> has_kind \<Gamma> (TyVar n) 
     "has_kind (k # \<Gamma>) t KStar \<Longrightarrow> has_kind \<Gamma> (TyAll k t) KStar"
   | TyLam:
     "has_kind (k1 # \<Gamma>) t k2 \<Longrightarrow> has_kind \<Gamma> (TyLam k1 t) (KArrow k1 k2)"
-  | TyFix: "has_kind (k # \<Gamma>) t k \<Longrightarrow> has_kind \<Gamma> (TyFix k t) k"
-  | TyRec: "has_kind (k # \<Gamma>) t k \<Longrightarrow> has_kind \<Gamma> (TyRec k t) k"
+  | TyFix: "has_kind (k # \<Gamma>) t k \<Longrightarrow> has_kind \<Gamma> (TyFix v k t) k"
   | TyData: "list_all (list_all (\<lambda>t. has_kind \<Gamma> t KStar)) tss
       \<Longrightarrow> has_kind \<Gamma> (TyData tss) KStar"
 
@@ -60,8 +60,7 @@ inductive_cases has_kind_elims:
   "has_kind \<Delta> (TyApp t1 t2) k"
   "has_kind \<Delta> (TyAll k1 t) k"
   "has_kind \<Delta> (TyLam k1 t) k"
-  "has_kind \<Delta> (TyFix k1 t) k"
-  "has_kind \<Delta> (TyRec k1 t) k"
+  "has_kind \<Delta> (TyFix v k1 t) k"
   "has_kind \<Delta> (TyData tss) k"
 
 lemma list_all_intros:
@@ -85,9 +84,7 @@ primrec ty_lift :: "nat \<Rightarrow> ty \<Rightarrow> ty"
   | "ty_lift i (TyApp t1 t2) = TyApp (ty_lift i t1) (ty_lift i t2)"
   | "ty_lift i (TyAll k t) = TyAll k (ty_lift (Suc i) t)"
   | "ty_lift i (TyLam k t) = TyLam k (ty_lift (Suc i) t)"
-  | "ty_lift i (TyFix k t) = TyFix k (ty_lift (Suc i) t)"
-  | ty_lift_TyRec:
-    "ty_lift i (TyRec k t) = TyRec k (ty_lift (Suc i) t)"
+  | "ty_lift i (TyFix v k t) = TyFix v k (ty_lift (Suc i) t)"
   | ty_lift_TyData:
     "ty_lift i (TyData tss) = TyData (cons_lift i tss)"
   | "cons_lift i [] = []"
@@ -104,9 +101,7 @@ primrec ty_subst :: "nat \<Rightarrow> ty \<Rightarrow> ty \<Rightarrow> ty"
   | "ty_subst i (TyApp t1 t2) x = TyApp (ty_subst i t1 x) (ty_subst i t2 x)"
   | "ty_subst i (TyAll k t) x = TyAll k (ty_subst (Suc i) t (ty_lift 0 x))"
   | "ty_subst i (TyLam k t) x = TyLam k (ty_subst (Suc i) t (ty_lift 0 x))"
-  | "ty_subst i (TyFix k t) x = TyFix k (ty_subst (Suc i) t (ty_lift 0 x))"
-  | ty_subst_TyRec:
-    "ty_subst i (TyRec k t) x = TyRec k (ty_subst (Suc i) t (ty_lift 0 x))"
+  | "ty_subst i (TyFix v k t) x = TyFix v k (ty_subst (Suc i) t (ty_lift 0 x))"
   | ty_subst_TyData:
     "ty_subst i (TyData tss) x = TyData (cons_subst i tss x)"
   | "cons_subst i [] x = []"
@@ -126,7 +121,6 @@ apply (force intro!: has_kind.TyApp)
 apply (simp add: has_kind.TyAll Cons_shift)
 apply (simp add: has_kind.TyLam Cons_shift)
 apply (simp add: has_kind.TyFix Cons_shift)
-apply (simp add: has_kind.TyRec Cons_shift)
 apply (simp, rule has_kind.TyData)
 apply (erule rev_mp, induct_tac tss, simp, simp)
 apply (rename_tac ts tss)
@@ -158,9 +152,6 @@ apply (rule has_kind.TyLam)
 apply (simp add: has_kind_Cons_ty_lift_0 Cons_shift)
 txt "TyFix"
 apply (rule has_kind.TyFix)
-apply (simp add: has_kind_Cons_ty_lift_0 Cons_shift)
-txt "TyRec"
-apply (rule has_kind.TyRec)
 apply (simp add: has_kind_Cons_ty_lift_0 Cons_shift)
 txt "TyData"
 apply (rule has_kind.TyData)
@@ -246,7 +237,7 @@ by (induct xs arbitrary: ys, simp, case_tac ys, simp, simp)
 
 inductive step :: "ty \<Rightarrow> ty \<Rightarrow> bool"
   where unfold: "step t t'
-      \<Longrightarrow> step (TyFix k t) (ty_subst 0 t' (TyFix k t'))"
+      \<Longrightarrow> step (TyFix Transparent k t) (ty_subst 0 t' (TyFix Transparent k t'))"
   | beta: "\<lbrakk>step t t'; step u u'\<rbrakk>
       \<Longrightarrow> step (TyApp (TyLam k t) u) (ty_subst 0 t' u')"
   | TyVar: "step (TyVar n) (TyVar n)"
@@ -255,8 +246,7 @@ inductive step :: "ty \<Rightarrow> ty \<Rightarrow> bool"
       \<Longrightarrow> step (TyApp t u) (TyApp t' u')"
   | TyAll: "step t t' \<Longrightarrow> step (TyAll k t) (TyAll k t')"
   | TyLam: "step t t' \<Longrightarrow> step (TyLam k t) (TyLam k t')"
-  | TyFix: "step t t' \<Longrightarrow> step (TyFix k t) (TyFix k t')"
-  | TyRec: "step t t' \<Longrightarrow> step (TyRec k t) (TyRec k t')"
+  | TyFix: "step t t' \<Longrightarrow> step (TyFix v k t) (TyFix v k t')"
   | TyData: "list_all2 (list_all2 step) tss tss'
       \<Longrightarrow> step (TyData tss) (TyData tss')"
 
@@ -266,8 +256,7 @@ inductive_cases step_elims:
   "step (TyApp t1 t2) t'"
   "step (TyAll t1 t2) t'"
   "step (TyLam k t) t'"
-  "step (TyFix k t) t'"
-  "step (TyRec k t) t'"
+  "step (TyFix v k t) t'"
   "step (TyData tss) t'"
 
 lemma list_all2_intros:
@@ -349,7 +338,6 @@ done
 lemma step_confluent:
   "\<lbrakk>step t x; step t y\<rbrakk> \<Longrightarrow> \<exists>u. step x u \<and> step y u"
 apply (induct arbitrary: y set: step)
-apply (blast elim!: step_elims intro!: step.intros step_ty_subst)
 apply (blast elim!: step_elims intro!: step.intros step_ty_subst)
 apply (blast elim!: step_elims intro!: step.intros step_ty_subst)
 apply (blast elim!: step_elims intro!: step.intros step_ty_subst)
@@ -506,7 +494,8 @@ apply (erule (1) steps_trans)
 apply (erule (1) steps_trans)
 done
 
-lemma conv_unfold: "conv (TyFix k t) (ty_subst 0 t (TyFix k t))"
+lemma conv_unfold:
+  "conv (TyFix Transparent k t) (ty_subst 0 t (TyFix Transparent k t))"
 apply (rule conv.intros [OF _ steps_refl])
 apply (rule steps_step [OF steps_refl])
 apply (rule step.unfold [OF step_refl])
@@ -539,7 +528,7 @@ subsection {* Injective type constructors *}
 inductive ty_injective :: "ty \<Rightarrow> bool"
   where TyBase: "ty_injective (TyBase b)"
   | TyApp: "ty_injective t \<Longrightarrow> ty_injective (TyApp t u)"
-  | TyRec: "ty_injective (TyRec k t)"
+  | TyFix: "ty_injective (TyFix Opaque k t)"
 
 lemma step_ty_injective:
   "\<lbrakk>step t t'; ty_injective t\<rbrakk> \<Longrightarrow> ty_injective t'"
@@ -601,11 +590,11 @@ data Forest a = Nil | Cons (Tree a) (Forest a)
 *}
 
 definition Tree :: ty
-  where "Tree = TyRec (KArrow KStar KStar) (TyLam KStar (TyData [[TyVar 0], [TyApp (TyRec (KArrow KStar KStar) (TyLam KStar (TyData
+  where "Tree = TyFix Opaque (KArrow KStar KStar) (TyLam KStar (TyData [[TyVar 0], [TyApp (TyFix Opaque (KArrow KStar KStar) (TyLam KStar (TyData
   [[], [TyApp (TyVar 0\<onesuperior>) (TyVar 0), TyApp (TyVar 0\<onesuperior>\<onesuperior>\<onesuperior>) (TyVar 0)]]))) (TyVar 0)]]))"
 
 definition Forest :: ty
-  where "Forest = TyRec (KArrow KStar KStar) (TyLam KStar (TyData
+  where "Forest = TyFix Opaque (KArrow KStar KStar) (TyLam KStar (TyData
   [[], [TyApp (TyVar 0\<onesuperior>) (TyVar 0), TyApp Tree (TyVar 0)]]))"
 
 lemma has_kind_Tree: "has_kind \<Gamma> Tree (KArrow KStar KStar)"
@@ -617,7 +606,7 @@ unfolding Forest_def Tree_def
 by (rule kind_rules)+
 
 lemma ty_injective_Tree: "ty_injective Tree"
-unfolding Tree_def by (rule ty_injective.TyRec)
+unfolding Tree_def by (rule ty_injective.TyFix)
 
 lemma conv_Tree_iff: "conv (TyApp Tree a) (TyApp Tree b) \<longleftrightarrow> conv a b"
 by (simp add: ty_injective_conv_iff ty_injective_Tree conv_refl)
@@ -628,11 +617,11 @@ data List a = Nil | Cons a (List a)
 *}
 
 definition
-  "Either = TyRec (KArrow KStar (KArrow KStar KStar))
+  "Either = TyFix Opaque (KArrow KStar (KArrow KStar KStar))
     (TyLam KStar (TyLam KStar (TyData [[TyVar 0\<onesuperior>], [TyVar 0]])))"
 
 definition
-  "List = TyRec (KArrow KStar KStar) (TyLam KStar
+  "List = TyFix Opaque (KArrow KStar KStar) (TyLam KStar
     (TyData [[], [TyVar 0, TyApp (TyVar 0\<onesuperior>) (TyVar 0)]]))"
 
 lemma has_kind_Either:
@@ -648,7 +637,7 @@ newtype MyList a = MkMyList (List a)
 *}
 
 definition
-  "MyList = TyFix (KArrow KStar KStar)
+  "MyList = TyFix Transparent (KArrow KStar KStar)
     (TyLam KStar (TyApp List (TyVar 0)))"
 
 lemma has_kind_MyList:
@@ -675,10 +664,10 @@ newtype Forest a = MkForest (List (Tree a))
 *}
 
 definition
-  "Tree' = TyFix (KArrow KStar KStar) (TyLam KStar (TyApp (TyApp Either (TyVar 0)) (TyApp (TyFix (KArrow KStar KStar) (TyLam KStar (TyApp List (TyApp (TyVar 0\<onesuperior>\<onesuperior>\<onesuperior>) (TyVar 0))))) (TyVar 0))))"
+  "Tree' = TyFix Transparent (KArrow KStar KStar) (TyLam KStar (TyApp (TyApp Either (TyVar 0)) (TyApp (TyFix Transparent (KArrow KStar KStar) (TyLam KStar (TyApp List (TyApp (TyVar 0\<onesuperior>\<onesuperior>\<onesuperior>) (TyVar 0))))) (TyVar 0))))"
 
 definition
-  "Forest' = TyFix (KArrow KStar KStar)
+  "Forest' = TyFix Transparent (KArrow KStar KStar)
     (TyLam KStar (TyApp List (TyApp Tree' (TyVar 0))))"
 
 lemma has_kind_Tree':

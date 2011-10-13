@@ -30,7 +30,7 @@ end
 text {* Every kind is inhabited. *}
 
 definition kind_witness :: "kind \<Rightarrow> ty" where
-  "kind_witness k = TyRec k (TyVar 0)"
+  "kind_witness k = TyFix Opaque k (TyVar 0)"
 
 lemma kind_witness: "has_kind \<Delta> (kind_witness k) k"
 unfolding kind_witness_def by (intro kind_rules)
@@ -107,13 +107,9 @@ where "ty_unsubst i (TyVar n) t' = TyVar (skip i n)"
     (case t' of
       TyLam k' t1' \<Rightarrow> TyLam k (ty_unsubst (Suc i) t1 t1')
     | _ \<Rightarrow> TyVar i)"
-| "ty_unsubst i (TyFix k t1) t' =
+| "ty_unsubst i (TyFix v k t1) t' =
     (case t' of
-      TyFix k' t1' \<Rightarrow> TyFix k (ty_unsubst (Suc i) t1 t1')
-    | _ \<Rightarrow> TyVar i)"
-| "ty_unsubst i (TyRec k t1) t' =
-    (case t' of
-      TyRec k' t1' \<Rightarrow> TyRec k (ty_unsubst (Suc i) t1 t1')
+      TyFix v' k' t1' \<Rightarrow> TyFix v k (ty_unsubst (Suc i) t1 t1')
     | _ \<Rightarrow> TyVar i)"
 | "ty_unsubst i (TyData tss) d' =
     (case d' of
