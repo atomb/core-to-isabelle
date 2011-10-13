@@ -115,9 +115,9 @@ where "ty_unsubst i (TyVar n) t' = TyVar (skip i n)"
     (case t' of
       TyRec k' t1' \<Rightarrow> TyRec k (ty_unsubst (Suc i) t1 t1')
     | _ \<Rightarrow> TyVar i)"
-| "ty_unsubst i (TyData s tss) d' =
+| "ty_unsubst i (TyData tss) d' =
     (case d' of
-      TyData s' tss' \<Rightarrow> TyData s (cons_unsubst i tss tss')
+      TyData tss' \<Rightarrow> TyData (cons_unsubst i tss tss')
     | _ \<Rightarrow> TyVar i)"
 | "cons_unsubst i [] tss' = []"
 | "cons_unsubst i (ts # tss) tss' =
@@ -288,10 +288,10 @@ apply (cut_tac ty_of_fun_correct [OF f])
 apply (simp add: fun_has_ty_def the_kind_kstar_def)
 done
 
-definition Tdata :: "string \<Rightarrow> kstar list list \<Rightarrow> kstar"
-  where "Tdata s xss = of_ty (TyData s (map (map to_ty) xss))"
+definition Tdata :: "kstar list list \<Rightarrow> kstar"
+  where "Tdata xss = of_ty (TyData (map (map to_ty) xss))"
 
-lemma to_ty_Tdata: "to_ty (Tdata s xss) = TyData s (map (map to_ty) xss)"
+lemma to_ty_Tdata: "to_ty (Tdata xss) = TyData (map (map to_ty) xss)"
 unfolding Tdata_def
 apply (rule of_ty_inverse)
 apply (simp add: the_kind_kstar_def)

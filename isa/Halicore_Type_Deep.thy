@@ -20,7 +20,7 @@ datatype ty
   | TyLam kind ty
   | TyFix kind ty
   | TyRec kind ty
-  | TyData tag "ty list list"
+  | TyData "ty list list"
 
 
 subsection {* Kinding relation *}
@@ -52,7 +52,7 @@ where TyVar: "mapsto \<Gamma> n k \<Longrightarrow> has_kind \<Gamma> (TyVar n) 
   | TyFix: "has_kind (k # \<Gamma>) t k \<Longrightarrow> has_kind \<Gamma> (TyFix k t) k"
   | TyRec: "has_kind (k # \<Gamma>) t k \<Longrightarrow> has_kind \<Gamma> (TyRec k t) k"
   | TyData: "list_all (list_all (\<lambda>t. has_kind \<Gamma> t KStar)) tss
-      \<Longrightarrow> has_kind \<Gamma> (TyData s tss) KStar"
+      \<Longrightarrow> has_kind \<Gamma> (TyData tss) KStar"
 
 inductive_cases has_kind_elims:
   "has_kind \<Delta> (TyVar n) k"
@@ -62,7 +62,7 @@ inductive_cases has_kind_elims:
   "has_kind \<Delta> (TyLam k1 t) k"
   "has_kind \<Delta> (TyFix k1 t) k"
   "has_kind \<Delta> (TyRec k1 t) k"
-  "has_kind \<Delta> (TyData s tss) k"
+  "has_kind \<Delta> (TyData tss) k"
 
 lemma list_all_intros:
   "list_all P []"
@@ -89,7 +89,7 @@ primrec ty_lift :: "nat \<Rightarrow> ty \<Rightarrow> ty"
   | ty_lift_TyRec:
     "ty_lift i (TyRec k t) = TyRec k (ty_lift (Suc i) t)"
   | ty_lift_TyData:
-    "ty_lift i (TyData s tss) = TyData s (cons_lift i tss)"
+    "ty_lift i (TyData tss) = TyData (cons_lift i tss)"
   | "cons_lift i [] = []"
   | cons_lift_Cons:
     "cons_lift i (ts # tss) = args_lift i ts # cons_lift i tss"
@@ -108,7 +108,7 @@ primrec ty_subst :: "nat \<Rightarrow> ty \<Rightarrow> ty \<Rightarrow> ty"
   | ty_subst_TyRec:
     "ty_subst i (TyRec k t) x = TyRec k (ty_subst (Suc i) t (ty_lift 0 x))"
   | ty_subst_TyData:
-    "ty_subst i (TyData s tss) x = TyData s (cons_subst i tss x)"
+    "ty_subst i (TyData tss) x = TyData (cons_subst i tss x)"
   | "cons_subst i [] x = []"
   | "cons_subst i (ts # tss) x = args_subst i ts x # cons_subst i tss x"
   | "args_subst i [] x = []"
@@ -258,7 +258,7 @@ inductive step :: "ty \<Rightarrow> ty \<Rightarrow> bool"
   | TyFix: "step t t' \<Longrightarrow> step (TyFix k t) (TyFix k t')"
   | TyRec: "step t t' \<Longrightarrow> step (TyRec k t) (TyRec k t')"
   | TyData: "list_all2 (list_all2 step) tss tss'
-      \<Longrightarrow> step (TyData s tss) (TyData s tss')"
+      \<Longrightarrow> step (TyData tss) (TyData tss')"
 
 inductive_cases step_elims:
   "step (TyVar n) t'"
@@ -268,7 +268,7 @@ inductive_cases step_elims:
   "step (TyLam k t) t'"
   "step (TyFix k t) t'"
   "step (TyRec k t) t'"
-  "step (TyData s tss) t'"
+  "step (TyData tss) t'"
 
 lemma list_all2_intros:
   "list_all2 P [] []"
@@ -601,11 +601,11 @@ data Forest a = Nil | Cons (Tree a) (Forest a)
 *}
 
 definition Tree :: ty
-  where "Tree = TyRec (KArrow KStar KStar) (TyLam KStar (TyData ''Tree'' [[TyVar 0], [TyApp (TyRec (KArrow KStar KStar) (TyLam KStar (TyData ''Forest''
+  where "Tree = TyRec (KArrow KStar KStar) (TyLam KStar (TyData [[TyVar 0], [TyApp (TyRec (KArrow KStar KStar) (TyLam KStar (TyData
   [[], [TyApp (TyVar 0\<onesuperior>) (TyVar 0), TyApp (TyVar 0\<onesuperior>\<onesuperior>\<onesuperior>) (TyVar 0)]]))) (TyVar 0)]]))"
 
 definition Forest :: ty
-  where "Forest = TyRec (KArrow KStar KStar) (TyLam KStar (TyData ''Forest''
+  where "Forest = TyRec (KArrow KStar KStar) (TyLam KStar (TyData
   [[], [TyApp (TyVar 0\<onesuperior>) (TyVar 0), TyApp Tree (TyVar 0)]]))"
 
 lemma has_kind_Tree: "has_kind \<Gamma> Tree (KArrow KStar KStar)"
@@ -629,11 +629,11 @@ data List a = Nil | Cons a (List a)
 
 definition
   "Either = TyRec (KArrow KStar (KArrow KStar KStar))
-    (TyLam KStar (TyLam KStar (TyData ''Either'' [[TyVar 0\<onesuperior>], [TyVar 0]])))"
+    (TyLam KStar (TyLam KStar (TyData [[TyVar 0\<onesuperior>], [TyVar 0]])))"
 
 definition
   "List = TyRec (KArrow KStar KStar) (TyLam KStar
-    (TyData ''List'' [[], [TyVar 0, TyApp (TyVar 0\<onesuperior>) (TyVar 0)]]))"
+    (TyData [[], [TyVar 0, TyApp (TyVar 0\<onesuperior>) (TyVar 0)]]))"
 
 lemma has_kind_Either:
   "has_kind \<Gamma> Either (KArrow KStar (KArrow KStar KStar))"
