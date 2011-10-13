@@ -228,8 +228,8 @@ done
 subsection {* Coercibility proofs between types *}
 
 text {* Relation @{text step} denotes parallel beta reduction of type
-expressions. It also allows unfolding of @{text TyFix} (but not @{text
-TyRec}) as a reduction step. *}
+expressions. It also allows unfolding of @{text TyFix} as a reduction
+step (if specified as @{text Transparent}). *}
 
 lemma list_all2_mono [mono]:
   "(\<And>x y. P x y \<longrightarrow> Q x y) \<Longrightarrow> list_all2 P xs ys \<longrightarrow> list_all2 Q xs ys"
