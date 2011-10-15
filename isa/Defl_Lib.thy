@@ -310,13 +310,13 @@ qed
 
 setup {* Domain_Take_Proofs.add_rec_type (@{type_name "defl"}, [true]) *}
 
-subsection {* A deflation constructor for dependent function space *}
+subsection {* A deflation constructor for dependent strict function space *}
 
-definition pi_defl :: "'a defl \<rightarrow> ('a \<rightarrow> 'b defl) \<rightarrow> ('a \<rightarrow> 'b) defl"
-  where "pi_defl = (\<Lambda> A B. defl.extension (\<lambda>a. defl.extension (\<lambda>b.
-    defl_principal (Abs_fin_defl (\<Lambda> f x.
+definition strict_pi_defl :: "'a defl \<rightarrow> ('a \<rightarrow> 'b defl) \<rightarrow> ('a \<rightarrow>! 'b) defl"
+  where "strict_pi_defl = (\<Lambda> A B. defl.extension (\<lambda>a. defl.extension (\<lambda>b.
+    defl_principal (Abs_fin_defl (\<Lambda> f. sfun_abs\<cdot>(\<Lambda> x.
       cast\<cdot>(meet_defl\<cdot>(defl_principal b)\<cdot>(B\<cdot>(Rep_fin_defl a\<cdot>x)))\<cdot>
-        (f\<cdot>(Rep_fin_defl a\<cdot>x)))))\<cdot>ID_defl)\<cdot>A)"
+        (sfun_rep\<cdot>f\<cdot>(Rep_fin_defl a\<cdot>x))))))\<cdot>ID_defl)\<cdot>A)"
 
 lemma Abs_fin_defl_mono:
   "\<lbrakk>finite_deflation a; finite_deflation b; a \<sqsubseteq> b\<rbrakk> \<Longrightarrow>
@@ -350,29 +350,36 @@ apply (erule ch2ch_cont [OF 2])
 apply (simp add: cont2contlubE [OF 2])
 done
 
-lemma cast_pi_defl:
+lemma Rep_fin_defl_strict [simp]: "Rep_fin_defl a\<cdot>\<bottom> = \<bottom>"
+using deflation_Rep_fin_defl by (rule deflation_strict)
+
+lemma cast_strict_pi_defl:
   fixes A :: "'a defl" and B :: "'a \<rightarrow> 'b defl"
-  shows "cast\<cdot>(pi_defl\<cdot>A\<cdot>B) = (\<Lambda> f x. cast\<cdot>(B\<cdot>(cast\<cdot>A\<cdot>x))\<cdot>(f\<cdot>(cast\<cdot>A\<cdot>x)))"
+  shows "cast\<cdot>(strict_pi_defl\<cdot>A\<cdot>B) =
+    (\<Lambda> f. sfun_abs\<cdot>(\<Lambda> x. cast\<cdot>(B\<cdot>(cast\<cdot>A\<cdot>x))\<cdot>(sfun_rep\<cdot>f\<cdot>(cast\<cdot>A\<cdot>x))))"
 proof -
   obtain Y :: "nat \<Rightarrow> 'b fin_defl" where
     Y: "\<forall>i. Y i \<sqsubseteq> Y (Suc i)" and ID: "ID_defl = (\<Squnion>i. defl_principal (Y i))"
     by (rule defl.obtain_principal_chain)
   have chain: "chain (\<lambda>i. defl_principal (Y i))"
     by (simp add: chainI Y)
-  have 1: "\<And>a b B. finite_deflation (\<Lambda> f x.
+  have 1: "\<And>a b B. finite_deflation (\<Lambda> f. sfun_abs\<cdot>(\<Lambda> x.
                cast\<cdot>(meet_defl\<cdot>(defl_principal b)\<cdot>(B\<cdot>(Rep_fin_defl a\<cdot>x)))\<cdot>
-               (f\<cdot>(Rep_fin_defl a\<cdot>x)))"
-    apply (rule_tac f="cfun_map\<cdot>(Rep_fin_defl a)\<cdot>(Rep_fin_defl b)" in
+               (sfun_rep\<cdot>f\<cdot>(Rep_fin_defl a\<cdot>x))))"
+    apply (rule_tac f="sfun_map\<cdot>(Rep_fin_defl a)\<cdot>(Rep_fin_defl b)" in
       finite_deflation_downward)
-    apply (intro finite_deflation_cfun_map finite_deflation_Rep_fin_defl)
+    apply (intro finite_deflation_sfun_map finite_deflation_Rep_fin_defl)
     apply (rule deflation.intro)
-    apply (simp add: Rep_fin_defl.idem)
+    apply (simp add: Rep_fin_defl.idem strictify_cancel)
+    apply (simp add: sfun_below_iff strictify_cancel)
     apply (rule cfun_belowI, simp, rename_tac f x)
     apply (rule below_trans [OF cast.below])
     apply (rule monofun_cfun_arg)
     apply (rule Rep_fin_defl.below)
-    apply (simp add: cfun_map_def)
-    apply (rule cfun_belowI, rule cfun_belowI, simp, rename_tac f x)
+    apply (simp add: sfun_map_def)
+    apply (rule cfun_belowI)
+    apply (simp add: sfun_below_iff strictify_cancel)
+    apply (rule cfun_belowI, simp, rename_tac f x)
     apply (rule monofun_cfun_fun)
     apply (subst cast_defl_principal [symmetric], rule monofun_cfun_arg)
     apply (rule meet_defl_below1)
@@ -383,7 +390,7 @@ proof -
        defl.principal_mono Abs_fin_defl_mono [OF 1 1] monofun_LAM
        below_refl Rep_fin_defl_mono Y [rule_format]
   show ?thesis
-  unfolding pi_defl_def
+  unfolding strict_pi_defl_def
     apply (subst beta_cfun)
     apply (simp only: mono_rules)
     apply (subst beta_cfun)
@@ -400,12 +407,28 @@ proof -
     apply (simp add: cast_defl_principal Abs_fin_defl_inverse 1)
     apply (subst lub_LAM, rule chainI)
     apply (simp only: mono_rules, simp)
+    apply (subst lub_APP, simp, rule chainI, simp only: mono_rules)
     apply (subst lub_LAM, rule chainI)
     apply (simp only: mono_rules, simp)
     apply (simp only: lub_distribs chainI mono_rules lub_const)
     apply (simp add: ID [symmetric] meet_defl_ID_defl)
     done
 qed
+
+subsection {* A deflation constructor for dependent function space *}
+
+definition pi_defl :: "'a defl \<rightarrow> ('a \<rightarrow> 'b defl) \<rightarrow> ('a \<rightarrow> 'b) defl"
+  where "pi_defl = (\<Lambda> A B. defl_fun1 decode_cfun encode_cfun ID\<cdot>
+    (strict_pi_defl\<cdot>(defl_fun1 ID ID u_map\<cdot>A)\<cdot>(fup\<cdot>B)))"
+
+lemma cast_pi_defl:
+  fixes A :: "'a defl" and B :: "'a \<rightarrow> 'b defl"
+  shows "cast\<cdot>(pi_defl\<cdot>A\<cdot>B) = (\<Lambda> f x. cast\<cdot>(B\<cdot>(cast\<cdot>A\<cdot>x))\<cdot>(f\<cdot>(cast\<cdot>A\<cdot>x)))"
+apply (simp add: pi_defl_def)
+apply (simp add: cast_defl_fun1 ep_pair_def
+  cast_strict_pi_defl finite_deflation_u_map)
+apply (simp add: decode_cfun_def encode_cfun_def cfun_eq_iff)
+done
 
 subsection {* A deflation constructor for dependent pairs *}
 
