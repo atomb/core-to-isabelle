@@ -410,12 +410,6 @@ by (auto simp add: shift_eq min_def)
 lemma take_Suc_shift: "i \<le> length \<Gamma> \<Longrightarrow> take (Suc i) (\<Gamma>{i:=k}) = take i \<Gamma> @ [k]"
 by (simp add: shift_eq min_def)
 
-lemma args_lift_conv_map: "args_lift i = map (ty_lift i)"
-by (rule ext, induct_tac x, simp_all)
-
-lemma cons_lift_conv_map: "cons_lift i = map (args_lift i)"
-by (rule ext, induct_tac x, simp_all)
-
 lemma has_kind_imp_ty_lift_cancel:
   "\<lbrakk>has_kind \<Gamma> t k; length \<Gamma> \<le> i\<rbrakk> \<Longrightarrow> ty_lift i t = t"
 apply (induct arbitrary: i set: has_kind)
@@ -495,14 +489,6 @@ done
 
 lemma has_kind_Nil_implies: "has_kind [] t k \<Longrightarrow> has_kind \<Gamma> t k"
 using has_kind_weaken [where \<Gamma> = "[]" and \<Gamma>' = \<Gamma>] by simp
-
-lemma args_subst_conv_map:
-  "args_subst i ts t' = map (\<lambda>t. ty_subst i t t') ts"
-by (induct ts, simp_all)
-
-lemma cons_subst_conv_map:
-  "cons_subst i tss t' = map (\<lambda>ts. args_subst i ts t') tss"
-by (induct tss, simp_all)
 
 lemma has_kind_imp_ty_subst_cancel:
   "\<lbrakk>has_kind \<Gamma> t k; length \<Gamma> \<le> i\<rbrakk> \<Longrightarrow> ty_subst i t x = t"

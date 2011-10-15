@@ -109,6 +109,20 @@ primrec ty_subst :: "nat \<Rightarrow> ty \<Rightarrow> ty \<Rightarrow> ty"
   | "args_subst i [] x = []"
   | "args_subst i (t # ts) x = ty_subst i t x # args_subst i ts x"
 
+lemma args_lift_conv_map: "args_lift i = map (ty_lift i)"
+by (rule ext, induct_tac x, simp_all)
+
+lemma cons_lift_conv_map: "cons_lift i = map (args_lift i)"
+by (rule ext, induct_tac x, simp_all)
+
+lemma args_subst_conv_map:
+  "args_subst i ts t' = map (\<lambda>t. ty_subst i t t') ts"
+by (induct ts, simp_all)
+
+lemma cons_subst_conv_map:
+  "cons_subst i tss t' = map (\<lambda>ts. args_subst i ts t') tss"
+by (induct tss, simp_all)
+
 lemma Cons_shift: "y # shift A i x = shift (y # A) (Suc i) x"
 using shift_shift [of A i x y] by (simp add: shift_0)
 
