@@ -84,7 +84,8 @@ fun dest_Abs (Abs (x, T, t)) =
   | dest_Abs t =
       let
         val T = Term.domain_type (Term.fastype_of t)
-        val x = Free (Name.variant (Term.add_free_names t []) "x", T)
+        val used = Term.add_free_names t []
+        val x = Free (singleton (Name.variant_list used) "x", T)
       in
         (x, t $ x)
       end

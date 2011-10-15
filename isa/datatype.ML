@@ -311,7 +311,7 @@ val parse_tbind : (string * string option) parser =
     (Parse.typ >> SOME) --| Parse.$$$ ")")
 
 val parse_htype : string parser =
-  Parse.group "Halicore type" Parse.term_group
+  Parse.group (fn () => "Halicore type") Parse.term_group
 
 val parse_halicore_data_decl :
     ((binding * (string * string option) list) *

@@ -32,13 +32,13 @@ method_setup typecheck = {*
 
 text {* Next we configure @{text typecheck} as a solver for the simplifier. *}
 
-setup {*
+local_setup {*
   let
-    val solver = mk_solver' "typecheck"
+    val solver = Simplifier.mk_solver "typecheck"
       (fn ss =>
         Halicore_Typecheck.typecheck_tac
           (Simplifier.the_context ss)
-          (Simplifier.prems_of_ss ss))
+          (Simplifier.prems_of ss))
   in
     Simplifier.map_simpset (fn ss => ss addSolver solver)
   end

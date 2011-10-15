@@ -29,14 +29,14 @@ brackets that encloses just a single constant or variable. *}
 
 print_ast_translation {*
   let
-    fun ast_tr [x as Appl [Constant @{syntax_const "_free"}, _]] = x
-      | ast_tr [x as Appl [Constant @{syntax_const "_bound"}, _]] = x
-      | ast_tr [x as Appl [Constant @{syntax_const "_var"}, _]] = x
-      | ast_tr [Appl [Constant @{syntax_const "_constrain"},
-          x as Appl [Constant @{syntax_const "_free"}, _], _]] = x
-      | ast_tr [x as Constant _] = x
+    fun ast_tr [x as Ast.Appl [Ast.Constant @{syntax_const "_free"}, _]] = x
+      | ast_tr [x as Ast.Appl [Ast.Constant @{syntax_const "_bound"}, _]] = x
+      | ast_tr [x as Ast.Appl [Ast.Constant @{syntax_const "_var"}, _]] = x
+      | ast_tr [Ast.Appl [Ast.Constant @{syntax_const "_constrain"},
+          x as Ast.Appl [Ast.Constant @{syntax_const "_free"}, _], _]] = x
+      | ast_tr [x as Ast.Constant _] = x
       | ast_tr xs = raise Match
-      | ast_tr xs = raise Syntax.AST ("_hunquote", xs)
+      | ast_tr xs = raise Ast.AST ("_hunquote", xs)
   in
     [(@{syntax_const "_hunquote"}, ast_tr)]
   end
@@ -137,17 +137,17 @@ translations -- "output"
 text {* This print translation for type-lambdas puts a kind annotation
 on the type variable unless it is of kind star (@{text \<star>}). *}
 
-print_translation {*
-  [(@{const_syntax Vtlam}, fn [Abs (abs as (_, T, _))] =>
+print_translation (advanced) {*
+  [(@{const_syntax Vtlam}, fn ctxt => fn [Abs (abs as (_, T, _))] =>
     let
-      val (x, t) = atomic_abs_tr' abs
+      val (x, t) = Syntax_Trans.atomic_abs_tr' abs
       val hidt = Syntax.const @{syntax_const "_hidt"}
       val habs = Syntax.const @{syntax_const "_habs"}
       val htarg = Syntax.const @{syntax_const "_htarg"}
       val hquote = Syntax.const @{syntax_const "_hquote"}
       val hunquote = Syntax.const @{syntax_const "_hunquote"}
       val x' =
-        if T = @{typ T} then x else hidt $ x $ Syntax.term_of_typ false T
+        if T = @{typ T} then x else hidt $ x $ Syntax_Phases.term_of_typ ctxt T
     in
       hquote $ (habs $ (htarg $ x') $ (hunquote $ t))
     end)]
@@ -174,16 +174,16 @@ translations -- "input"
 text {* This print translation for forall-types puts a kind annotation
 on the type variable unless it is of kind star (@{text \<star>}). *}
 
-print_translation {*
-  [(@{const_syntax Tforall}, fn [Abs (abs as (_, T, _))] =>
+print_translation (advanced) {*
+  [(@{const_syntax Tforall}, fn ctxt => fn [Abs (abs as (_, T, _))] =>
     let
-      val (x, t) = atomic_abs_tr' abs
+      val (x, t) = Syntax_Trans.atomic_abs_tr' abs
       val hidt = Syntax.const @{syntax_const "_hidt"}
       val hall = Syntax.const @{syntax_const "_hall"}
       val htquote = Syntax.const @{syntax_const "_htquote"}
       val hunquote = Syntax.const @{syntax_const "_hunquote"}
       val x' =
-        if T = @{typ T} then x else hidt $ x $ Syntax.term_of_typ false T
+        if T = @{typ T} then x else hidt $ x $ Syntax_Phases.term_of_typ ctxt T
     in
       htquote $ (hall $ x' $ (hunquote $ t))
     end)]
@@ -252,7 +252,7 @@ structure Halicore_Tags = Generic_Data
 
 parse_ast_translation (advanced) {*
 let
-  fun hcon_ast_tr ctxt [Syntax.Variable c] =
+  fun hcon_ast_tr ctxt [Ast.Variable c] =
     let
       val (tab, _) = Halicore_Tags.get (Context.Proof ctxt)
       val thy = ProofContext.theory_of ctxt
@@ -262,7 +262,7 @@ let
           SOME x => x
         | NONE => error ("Not a Halicore data constructor: " ^ con)
     in
-      Syntax.Constant (Syntax.mark_const tag)
+      Ast.Constant (Lexicon.mark_const tag)
     end
     | hcon_ast_tr ctxt _ = raise Match
 in
@@ -272,16 +272,16 @@ end
 
 print_ast_translation (advanced) {*
 let
-  fun htag_ast_tr' ctxt [Syntax.Constant tag] =
+  fun htag_ast_tr' ctxt [Ast.Constant tag] =
     let
       val (_, tab) = Halicore_Tags.get (Context.Proof ctxt)
       val thy = ProofContext.theory_of ctxt
       val con =
-        case Symtab.lookup tab (Syntax.unmark_const tag) of
+        case Symtab.lookup tab (Lexicon.unmark_const tag) of
           SOME x => x
         | NONE => raise Match
     in
-      Syntax.Constant (Syntax.mark_const con)
+      Ast.Constant (Lexicon.mark_const con)
     end
     | htag_ast_tr' ctxt _ = raise Match
 in

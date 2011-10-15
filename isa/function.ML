@@ -144,10 +144,10 @@ val add_halicore_fun =
 (*** Outer syntax parsers ***)
 
 val parse_htype : string parser =
-  Parse.group "Halicore type" Parse.term_group
+  Parse.group (fn () => "Halicore type") Parse.term_group
 
 val parse_hterm : string parser =
-  Parse.group "Halicore term" Parse.term_group
+  Parse.group (fn () => "Halicore term") Parse.term_group
 
 val parse_halicore_fun_decl : ((binding * string) * string) list parser =
   Parse.and_list

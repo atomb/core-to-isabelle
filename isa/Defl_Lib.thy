@@ -69,8 +69,10 @@ lemma fin_Inf_defl_insert [simp]:
   assumes "finite A"
   shows "fin_Inf_defl (insert x A) = meet_defl\<cdot>x\<cdot>(fin_Inf_defl A)"
 unfolding fin_Inf_defl_def
-apply (rule fun_left_comm_idem.fold_insert_idem [OF _ assms])
-by default (fast intro: below_antisym meet_defl_rules)+
+apply (rule comp_fun_idem.fold_insert_idem [OF _ assms])
+apply (default, unfold o_def)
+apply (fast intro: below_antisym meet_defl_rules)+
+done
 
 lemma fin_Inf_defl_below:
   "\<lbrakk>finite A; x \<in> A\<rbrakk> \<Longrightarrow> fin_Inf_defl A \<sqsubseteq> x"
@@ -180,7 +182,7 @@ done
 lemma defl_of_cast: "defl_of\<cdot>(cast\<cdot>d) = d"
 unfolding defl_of_beta
 apply (simp add: cast_below_cast)
-apply (rule thelubI)
+apply (rule lub_eqI)
 apply (rule is_lubI)
 apply (rule is_ubI)
 apply simp
