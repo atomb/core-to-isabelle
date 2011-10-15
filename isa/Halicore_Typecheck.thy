@@ -32,7 +32,7 @@ method_setup typecheck = {*
 
 text {* Next we configure @{text typecheck} as a solver for the simplifier. *}
 
-local_setup {*
+setup {*
   let
     val solver = Simplifier.mk_solver "typecheck"
       (fn ss =>
@@ -40,7 +40,7 @@ local_setup {*
           (Simplifier.the_context ss)
           (Simplifier.prems_of ss))
   in
-    Simplifier.map_simpset (fn ss => ss addSolver solver)
+    Simplifier.map_simpset_global (fn ss => ss addSolver solver)
   end
 *}
 
