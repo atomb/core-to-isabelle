@@ -168,7 +168,7 @@ apply (simp add: cast_T_rep_Tfun)
 apply (case_tac f', simp_all)
 done
 
-lemma Vapp_Vlam:
+lemma Vapp_Vlam [simp]:
   assumes f: "cont f"
   assumes x: "y ::: t"
   shows "Vapp (Vlam t f) y = f y"
@@ -258,7 +258,7 @@ apply (simp add: cast_T_rep_Tforall [OF h])
 apply (case_tac f', simp_all add: cont_compose [OF h])
 done
 
-lemma Vtapp_Vtlam:
+lemma Vtapp_Vtlam [simp]:
   assumes h: "cont (\<lambda>a. h a)"
   shows "Vtapp (Vtlam (\<lambda>a. h a)) t = h t"
 unfolding Vtapp_def Vtlam_def
@@ -421,10 +421,10 @@ definition Bval :: "T \<Rightarrow> (V \<Rightarrow> B) \<Rightarrow> B"
 
 text {* Both branch combinators satisfy rewrite rules. *}
 
-lemma B_rep_Bnone: "B_rep\<cdot>(Bnone v)\<cdot>[] = v"
+lemma B_rep_Bnone [simp]: "B_rep\<cdot>(Bnone v)\<cdot>[] = v"
 by (simp add: Bnone_def B.abs_iso)
 
-lemma B_rep_Bval:
+lemma B_rep_Bval [simp]:
   assumes f: "cont f" and x: "x ::: t"
   shows "B_rep\<cdot>(Bval t f)\<cdot>(x # xs) = B_rep\<cdot>(f x)\<cdot>xs"
 unfolding Bval_def B.abs_iso
@@ -455,7 +455,7 @@ text {* Both branch combinators obey typing rules. *}
 lemma B_type_Bnone: "y ::: u \<Longrightarrow> B_type (Bnone y) [] u"
 unfolding B_type_def
 apply (clarify elim!: have_types_elims)
-apply (simp add: B_rep_Bnone)
+apply simp
 done
 
 lemma B_type_Bval:
@@ -464,7 +464,7 @@ lemma B_type_Bval:
   shows "B_type (Bval t (\<lambda>x. b x)) (t # ts) u"
 using assms unfolding B_type_def
 apply (clarify elim!: have_types_elims)
-apply (simp add: B_rep_Bval)
+apply simp
 done
 
 subsubsection {* Blocks of case branches *}
