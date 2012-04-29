@@ -79,9 +79,16 @@ subsection {* Defining functions *}
 lemma adm_has_type: "cont f \<Longrightarrow> adm (\<lambda>x. f x ::: t)"
 unfolding has_type_def by simp
 
-text {* Right now, the @{text halicore_fun} command parses its input,
-defines the constants, and proves unfolding rules. It doesn't generate
-typing rules or any other theorems yet. *}
+text {* So far, the @{text halicore_fun} command provides the
+following theorems for each constant:
+
+\begin{itemize}
+\item A definition (@{text foo_def}), using the fixed-point combinator
+\item An unfolding rule (@{text foo_unfold})
+\item A typing rule (@{text has_type_foo}),
+  declared with the @{text "[type_rule]"} attribute
+\end{itemize}
+*}
 
 use "function.ML"
 
