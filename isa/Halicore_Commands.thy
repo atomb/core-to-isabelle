@@ -1,7 +1,7 @@
 header {* Definition packages for Halicore datatypes and functions *}
 
 theory Halicore_Commands
-imports Halicore_Syntax Halicore_Typecheck
+imports Halicore_Syntax Halicore_Typecheck Halicore_Simprocs
 uses ("datatype.ML") ("function.ML")
 begin
 
