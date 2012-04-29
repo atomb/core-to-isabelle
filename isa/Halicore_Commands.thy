@@ -5,6 +5,23 @@ imports Halicore_Syntax Halicore_Typecheck
 uses ("datatype.ML") ("function.ML")
 begin
 
+subsection {* Prelude constants used by commands *}
+
+subsubsection {* Undefined *}
+
+definition undefined :: "V"
+  where "undefined = Vtlam (\<lambda>a::T. \<bottom>)"
+
+lemma has_type_undefined [type_rule]:
+  "has_type undefined (Tforall (\<lambda>a. a))"
+unfolding undefined_def
+by (rule has_type_Vtlam, simp, simp, rule has_type_bottom)
+
+lemma Vcase_undefined [simp]:
+  "Vcase t (Vtapp undefined (a::T)) m = Vtapp undefined t"
+unfolding undefined_def Vcase_def by simp
+
+
 subsection {* Defining datatypes *}
 
 text {* The @{text halicore_data} command parses its input, and
