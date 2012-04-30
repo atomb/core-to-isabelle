@@ -40,6 +40,15 @@ fun mk_Vtlam (a, t) =
 fun mk_Vlam ((x, t), e) =
   @{const Vlam} $ t $ Term.lambda x e
 
+fun Vtapp_const k =
+  Const (@{const_name Vtapp}, @{typ V} --> k --> @{typ V})
+
+fun mk_Vtapp (t, u) =
+  Vtapp_const (fastype_of u) $ t $ u
+
+fun mk_Vapp (t, u) =
+  @{const Vapp} $ t $ u
+
 fun Tapp_const (S, T) =
   Const(@{const_name Tapp}, HOLCF_Library.mk_cfunT (S, T) --> (S --> T))
 
@@ -107,7 +116,7 @@ fun gen_add_halicore_data
     fun print_tycon t k = writeln (t ^ " :: " ^ Syntax.string_of_typ lthy k)
     val _ = map2 print_tycon tycon_names kinds
 
-    (* Parse constructor types on right-hand sides *)    
+    (* Parse constructor types on right-hand sides *)
     fun prep_rhs targs raw_rhs =
       let
         (* temporarily declare type arguments for parsing *)
@@ -237,10 +246,10 @@ fun gen_add_halicore_data
     fun define_constrs (((tycon, targs), rhs), has_constr_thms) lthy =
       let
         val t0 = Library.foldl mk_Tapp (tycon, map Free targs)
-        val used = map fst targs
+        val t_names = map fst targs
         fun define_constr (((cbind, (ctag, _)), ts), has_constr_thm) lthy =
           let
-            val x_names = Name.variant_list used (map (K "x") ts)
+            val x_names = Name.variant_list t_names (map (K "x") ts)
             val xs = map (fn x => Free (x, @{typ V})) x_names
             val e1 = HOLCF_Library.mk_capply (@{const Vcon}, ctag)
             val e2 = HOLCF_Library.mk_capply (e1, HOLogic.mk_list @{typ V} xs)
@@ -265,6 +274,25 @@ fun gen_add_halicore_data
             val attrib = Attrib.internal (K Halicore_Typecheck.add_type_rule)
             val (_, lthy) = lthy
               |> Local_Theory.note ((thm_bind, [attrib]), [has_type_thm])
+
+            (* prove is_constructor rule *)
+            val t1 = Library.foldl mk_Vtapp (constr, map Free targs)
+            val t2 = Library.foldl mk_Vapp (t1, xs)
+            val t3 = HOLogic.mk_list @{typ V} xs
+            val concl = @{const is_constructor} $ t2 $ ctag $ t3
+            val assms = map2 (fn x => fn t =>
+                  HOLogic.mk_Trueprop (@{const has_type} $ x $ t)) xs ts
+            val prop = Logic.list_implies (assms, HOLogic.mk_Trueprop concl)
+            val simps = @{thms is_constructor_simps}
+            val tac0 = rewrite_goals_tac [def_thm]
+            val tac1 = asm_simp_tac (HOL_basic_ss addsimps simps) 1
+            val tac = EVERY [tac0, tac1]
+            val is_constructor_thm =
+              Goal.prove lthy (x_names @ t_names) [] prop (K tac)
+            val thm_bind = Binding.prefix_name "is_constructor_" cbind
+            val attrib = Attrib.internal (K Halicore_Simprocs.add_con_rule)
+            val (_, lthy) = lthy
+              |> Local_Theory.note ((thm_bind, [attrib]), [is_constructor_thm])
           in
             (* eventually we'll have to return some other stuff too *)
             ((), lthy)

@@ -56,6 +56,12 @@ lemmas has_type_constr_intros =
   cont2cont_APP cont2cont_Cons
   cont_Tapp cont_Tforall cont_Vlam cont_Vtlam
 
+lemmas is_constructor_simps =
+  is_constructor_def Vtapp_Vtlam Vapp_Vlam
+  cont_id cont_const cont2cont_fst cont2cont_snd
+  cont2cont_APP cont2cont_Cons
+  cont_Tapp cont_Tforall cont_Vlam cont_Vtlam
+
 subsubsection {* Loading the datatype package *}
 
 use "datatype.ML"
