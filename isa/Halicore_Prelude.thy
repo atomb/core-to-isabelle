@@ -41,4 +41,9 @@ term "\<guillemotleft>[x, y, z]{a}\<guillemotright>"
 
 text {* TODO: output syntax for lists *}
 
+subsection {* Hiding duplicate constant names from the HOL library *}
+
+hide_const (open) HOL.undefined
+hide_const (open) List.Nil List.Cons
+
 end
