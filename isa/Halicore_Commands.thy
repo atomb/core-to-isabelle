@@ -17,9 +17,16 @@ lemma has_type_undefined [type_rule]:
 unfolding undefined_def
 by (rule has_type_Vtlam, simp, simp, rule has_type_bottom)
 
+lemma Vtapp_undefined: "Vtapp undefined (a::T) = \<bottom>"
+unfolding undefined_def by simp
+
 lemma Vcase_undefined [simp]:
   "Vcase t (Vtapp undefined (a::T)) m = Vtapp undefined t"
-unfolding undefined_def Vcase_def by simp
+unfolding Vtapp_undefined by (rule Vcase_bottom)
+
+lemma Vcase_Mnone_undefined [simp]:
+  "Vcase t x (\<lambda>w. Mnone) = Vtapp undefined t"
+unfolding Vtapp_undefined by (rule Vcase_Mnone)
 
 
 subsection {* Defining datatypes *}

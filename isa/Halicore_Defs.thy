@@ -579,10 +579,16 @@ using assms unfolding Vcase_def M_type_def by simp
 
 text {* Case expressions satisfy some basic rewrite rules. *}
 
+lemma Vcase_bottom: "Vcase t \<bottom> m = \<bottom>"
+unfolding Vcase_def by simp
+
 theorem Vcase_Mwild:
   assumes f: "cont f" and x: "x \<noteq> \<bottom>"
   shows "Vcase t x (\<lambda>w. Mwild (f w)) = f x"
 by (simp add: Vcase_def Mwild_def M.abs_iso x)
+
+lemma Vcase_Mnone: "Vcase t v (\<lambda>w. Mnone) = \<bottom>"
+by (cases "v = \<bottom>", simp add: Vcase_bottom, simp add: Mnone_def Vcase_Mwild)
 
 theorem Vcase_Vcon_Mwild:
   assumes "cont f"
