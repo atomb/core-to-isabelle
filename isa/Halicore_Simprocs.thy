@@ -52,6 +52,15 @@ structure Is_Con_Data = Generic_Data
   val merge = Item_Net.merge
 )
 
+structure Tag_Def_Data = Generic_Data
+(
+  type T = thm Item_Net.T
+  val empty = Item_Net.init Thm.eq_thm_prop
+        (single o fst o Logic.dest_equals o concl_of)
+  val extend = I
+  val merge = Item_Net.merge
+)
+
 val get_con_rules =
   Item_Net.content o Is_Con_Data.get o Context.Proof
 
@@ -60,6 +69,26 @@ val add_con_rule =
 
 val del_con_rule =
   Thm.declaration_attribute (Is_Con_Data.map o Item_Net.remove)
+
+val add_tag_def =
+  Thm.declaration_attribute (Tag_Def_Data.map o Item_Net.update)
+
+val del_tag_def =
+  Thm.declaration_attribute (Tag_Def_Data.map o Item_Net.remove)
+
+fun prove_neq ctxt s t =
+  let
+    val net = Tag_Def_Data.get (Context.Proof ctxt)
+    val s_def = hd (Item_Net.retrieve net s)
+    val t_def = hd (Item_Net.retrieve net t)
+    val goal = HOLogic.mk_not (HOLogic.mk_eq (s, t))
+    val prop = HOLogic.mk_Trueprop goal
+    val rules = @{thms list.inject list.distinct char.inject nibble.distinct}
+    val tac1 = rewrite_goal_tac [s_def, t_def] 1
+    val tac2 = simp_tac (HOL_ss addsimps rules) 1
+  in
+    Goal.prove ctxt [] [] prop (K (tac1 THEN tac2))
+  end
 
 fun compare_constructor_proc rule1 rule2 (phi : morphism) ss ct =
   let
@@ -73,7 +102,7 @@ fun compare_constructor_proc rule1 rule2 (phi : morphism) ss ct =
   in
     if s = t
       then SOME (rule1 OF [thmx, thmy])
-      else NONE (* TODO: prove that s \<noteq> t and use rule2 *)
+      else SOME (rule2 OF [thmx, thmy, prove_neq ctxt s t])
   end
   handle Empty => NONE (* due to failed hd function *)
 
@@ -87,15 +116,15 @@ fun con_case_proc (phi : morphism) ss ct =
   let
     val rule1 = @{thm is_constructor_Vcase_eq}
     val rule2 = @{thm is_constructor_Vcase_neq}
-    val (_ $ _ $ x $ Abs (_, _, _ $ s' $ _ $ _)) = Thm.term_of ct
+    val (_ $ _ $ x $ Abs (_, _, _ $ t $ _ $ _)) = Thm.term_of ct
     val ctxt = Simplifier.the_context ss
     val net = Is_Con_Data.get (Context.Proof ctxt)
     val thmx = hd (Item_Net.retrieve net x)
     val s = (#2 o dest_is_constructor o HOLogic.dest_Trueprop o concl_of) thmx
   in
-    if s = s'
+    if s = t
       then SOME (rule1 OF [thmx])
-      else NONE (* TODO: prove that s \<noteq> s' and use rule2 *)
+      else SOME (rule2 OF [thmx, prove_neq ctxt s t])
   end
   handle Empty => NONE (* due to failed hd function *)
 
@@ -107,6 +136,11 @@ val setup =
   #>
   Global_Theory.add_thms_dynamic
     (Binding.name "is_constructor", Item_Net.content o Is_Con_Data.get)
+  #>
+  Attrib.setup
+    (Binding.name "tag_def")
+    (Attrib.add_del add_tag_def del_tag_def)
+    "declaration of constructor tag definition (Halicore)"
 
 end
 *}

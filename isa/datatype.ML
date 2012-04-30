@@ -74,14 +74,16 @@ fun dest_big_lambdas (Const (@{const_name Abs_cfun}, _) $ Abs (x, T, t)) =
 
 (*** Wrappers for theory-updating commands ***)
 
-fun define (bind, rhs) lthy =
+fun define' attrs (bind, rhs) lthy =
   let
-    val attrib = (Binding.suffix_name "_def" bind, [])
+    val attrib = (Binding.suffix_name "_def" bind, attrs)
     val ((const, (_ (*thm_name*), def_thm)), lthy) = lthy
       |> Local_Theory.define ((bind, NoSyn), (attrib, rhs))
   in
     ((const, def_thm), lthy)
   end
+
+val define = define' []
 
 
 (*** Defining Halicore datatypes ***)
@@ -131,8 +133,9 @@ fun gen_add_halicore_data
     fun define_tag (cbind, ts) lthy =
       let
         val rhs = HOLogic.mk_string (Binding.name_of cbind)
+        val attrib = Attrib.internal (K Halicore_Simprocs.add_tag_def)
         val ((ctag, ctag_def), lthy) =
-          define (Binding.suffix_name "_tag" cbind, rhs) lthy
+          define' [attrib] (Binding.suffix_name "_tag" cbind, rhs) lthy
       in
         (((cbind, (ctag, ctag_def)), ts), lthy)
       end

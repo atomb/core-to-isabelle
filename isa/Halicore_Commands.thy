@@ -55,7 +55,7 @@ unfolding Tapp_def by simp
 
 lemmas has_constructor_simps =
   lookup_defls.simps fst_conv snd_conv refl if_True if_False
-  list.simps(1-3) char.inject nibble.simps(1-240)
+  list.inject list.distinct char.inject nibble.distinct
 
 lemmas has_type_constr_intros =
   has_type_Vtlam has_type_Vlam
