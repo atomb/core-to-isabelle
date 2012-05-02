@@ -595,7 +595,7 @@ theorem Vcase_Vcon_Mwild:
   shows "Vcase t (Vcon\<cdot>s\<cdot>xs) (\<lambda>w. Mwild (f w)) = f (Vcon\<cdot>s\<cdot>xs)"
 using assms by (rule Vcase_Mwild) simp
 
-theorem Vcase_Vlam_Mwild:
+theorem Vcase_Vlam_Mwild [simp]:
   assumes "cont f"
   shows "Vcase t' (Vlam t g) (\<lambda>w. Mwild (f w)) = f (Vlam t g)"
 using assms by (rule Vcase_Mwild, simp add: Vlam_def)
