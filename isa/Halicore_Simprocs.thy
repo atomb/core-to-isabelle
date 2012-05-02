@@ -35,6 +35,12 @@ lemma is_constructor_Vcase_neq:
 using assms unfolding is_constructor_def
 by (simp add: Vcase_Mbranch_neq)
 
+lemma is_constructor_Vcase_Mwild:
+  assumes "is_constructor x s xs" and "cont f"
+  shows "Vcase t x (\<lambda>w. Mwild (f w)) \<equiv> f x"
+using assms unfolding is_constructor_def
+by (simp add: Vcase_Mwild)
+
 ML {*
 structure Halicore_Simprocs =
 struct
@@ -128,6 +134,18 @@ fun con_case_proc (phi : morphism) ss ct =
   end
   handle Empty => NONE (* due to failed hd function *)
 
+fun con_wild_proc (phi : morphism) ss ct =
+  let
+    val rule1 = @{thm is_constructor_Vcase_Mwild}
+    val (_ $ _ $ x $ _) = Thm.term_of ct
+    val ctxt = Simplifier.the_context ss
+    val net = Is_Con_Data.get (Context.Proof ctxt)
+    val thmx = hd (Item_Net.retrieve net x)
+  in
+    SOME (rule1 OF [thmx])
+  end
+  handle Empty => NONE (* due to failed hd function *)
+
 val setup =
   Attrib.setup
     (Binding.name "is_constructor")
@@ -155,5 +173,8 @@ simproc_setup con_below_proc ("(x::V) \<sqsubseteq> (y::V)") =
 
 simproc_setup con_case_proc ("Vcase t x (\<lambda>w. Mbranch s (b w) (m w))") =
   Halicore_Simprocs.con_case_proc
+
+simproc_setup con_wild_proc ("Vcase t x (\<lambda>w. Mwild (v w))") =
+  Halicore_Simprocs.con_wild_proc
 
 end
